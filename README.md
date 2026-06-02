@@ -155,10 +155,33 @@ pip install pypots huggingface_hub tables
 Run a smoke test on synthetic toy data:
 
 ```bash
-python scripts/run_smoke_test.py
+python reproduce/run_smoke.py
 ```
 
 Run one PhyGuard quick evaluation:
+
+```bash
+python reproduce/run_protocol.py \
+  --datasets PEMS08 \
+  --scenarios random_missing_50 incident_perturbation \
+  --seeds 1 \
+  --epochs 20 \
+  --guard-epochs 120 \
+  --output-root results/reproduce_quick
+```
+
+Run the same quick protocol with ImputeFormer:
+
+```bash
+python reproduce/run_protocol.py \
+  --datasets PEMS08 \
+  --scenarios random_missing_50 sensor_failure_30 incident_perturbation noise_random_missing \
+  --seeds 1 \
+  --include-imputeformer \
+  --output-root results/reproduce_quick
+```
+
+The direct PhyGuard entry point is still available:
 
 ```bash
 python scripts/run_maginet_physics_guard_quick.py \
@@ -168,17 +191,6 @@ python scripts/run_maginet_physics_guard_quick.py \
   --guard-epochs 120 \
   --scenarios random_missing_50 incident_perturbation \
   --output-dir results/phyguard_pems08_seed1
-```
-
-Run PyPOTS ImputeFormer baseline:
-
-```bash
-python scripts/run_imputeformer_pypots_quick.py \
-  --dataset PEMS08 \
-  --seed 1 \
-  --epochs 20 \
-  --scenarios random_missing_50 sensor_failure_30 incident_perturbation noise_random_missing \
-  --output-dir results/imputeformer_pems08_seed1
 ```
 
 ## Data
@@ -197,6 +209,9 @@ dataset is unavailable, early-stage smoke tests use synthetic traffic-like data
 only for pipeline validation. Synthetic results must not be treated as paper
 evidence.
 
+See `DATASETS.md` and `THIRD_PARTY_NOTICES.md` before redistributing data or
+third-party baseline code.
+
 ## Evaluation Protocol
 
 The main paper protocol evaluates target-region masked MAE under:
@@ -207,6 +222,8 @@ The main paper protocol evaluates target-region masked MAE under:
 - `sensor_failure_30`
 
 Additional robustness experiments use random missing rates 30%, 50%, and 70%.
+
+Formal reproduction scripts are in `reproduce/`.
 
 ## Reproducibility Notes
 
