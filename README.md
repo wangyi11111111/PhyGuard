@@ -1,4 +1,4 @@
-﻿# PhyGuard
+# PhyGuard
 
 **PhyGuard** is a lightweight physics-guided reliability guard for robust sparse
 traffic state reconstruction.
