@@ -64,6 +64,7 @@ METHOD_NAME = "PhyGuard"
 GAMMA_SWEEP_MAX = 2.5
 GAMMA_SWEEP_STEPS = 51
 REGION_GAMMA_MAX = 4.0
+FIXED_CORRECTION_KEY: str | None = None
 
 
 class PhysicsHarmSelector(nn.Module):
@@ -675,7 +676,11 @@ def _select_validated_correction(
         and not key.startswith("FailureDualAmplitude")
     ]
     temporal_keys = [key for key in candidates if key not in physics_safe_keys and key != "MagiNet"]
-    if scenario == "sensor_failure_30":
+    if FIXED_CORRECTION_KEY is not None:
+        if FIXED_CORRECTION_KEY not in candidates:
+            raise ValueError(f"fixed correction key {FIXED_CORRECTION_KEY!r} is not available.")
+        selected_key = FIXED_CORRECTION_KEY
+    elif scenario == "sensor_failure_30":
         # Raw temporal evidence can be a strong teacher, but the final method must
         # pass through our physics/calibration correction instead of copying it.
         corrected_keys = [
@@ -1323,7 +1328,7 @@ def _run_one_scenario(
 
 
 def main() -> None:
-    global GAMMA_SWEEP_MAX, GAMMA_SWEEP_STEPS, REGION_GAMMA_MAX
+    global GAMMA_SWEEP_MAX, GAMMA_SWEEP_STEPS, REGION_GAMMA_MAX, FIXED_CORRECTION_KEY
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="PEMS08", choices=["PEMS03", "PEMS04", "PEMS08", "PEMS08_debug", "METR-LA", "PEMS-BAY"])
@@ -1335,6 +1340,7 @@ def main() -> None:
     parser.add_argument("--gamma-sweep-max", type=float, default=GAMMA_SWEEP_MAX)
     parser.add_argument("--gamma-sweep-steps", type=int, default=GAMMA_SWEEP_STEPS)
     parser.add_argument("--region-gamma-max", type=float, default=REGION_GAMMA_MAX)
+    parser.add_argument("--fixed-correction-key", default=None)
     parser.add_argument("--case-study-dir", default=None)
     parser.add_argument(
         "--ablation",
@@ -1346,6 +1352,7 @@ def main() -> None:
     GAMMA_SWEEP_MAX = float(args.gamma_sweep_max)
     GAMMA_SWEEP_STEPS = int(args.gamma_sweep_steps)
     REGION_GAMMA_MAX = float(args.region_gamma_max)
+    FIXED_CORRECTION_KEY = args.fixed_correction_key
 
     device = resolve_device("cuda" if torch.cuda.is_available() else "cpu")
     train_x, val_x, test_x, adj, metadata = _load_dataset_splits(args.dataset, args.seed)

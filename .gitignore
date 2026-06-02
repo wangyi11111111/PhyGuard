@@ -25,6 +25,8 @@ wandb/
 mlruns/
 tmp/
 results/antileakage_*/
+results/leakage_check_*/
+results/strict_fixed_smoke/
 
 # OS/editor
 .DS_Store

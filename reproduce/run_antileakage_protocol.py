@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import pickle
 import sys
 from pathlib import Path
 
@@ -38,6 +39,7 @@ from scripts.run_maginet_physics_guard_quick import (
     _edge_csv_to_adjacency_with_sensor_ids,
     _run_one_scenario,
 )
+import scripts.run_maginet_physics_guard_quick as guard_module
 from scripts.train import resolve_device
 
 
@@ -186,6 +188,49 @@ def _load_strict_metrla_hf(
     return train_x, val_x, test_x, adj, metadata
 
 
+def _load_strict_pems_bay_hf(
+    *,
+    train_samples: int,
+    val_samples: int,
+    test_samples: int,
+    seq_len: int,
+    stride: int,
+    gap: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
+    h5_path = hf_hub_download(repo_id="MintBruce/SkyTraffic", repo_type="dataset", filename="pems-bay.h5")
+    adj_path = hf_hub_download(repo_id="MintBruce/SkyTraffic", repo_type="dataset", filename="pems/adj_mx_bay.pkl")
+    df = pd.read_hdf(h5_path)
+    series = df.to_numpy(dtype=np.float32)
+    if series.ndim != 2:
+        raise ValueError(f"expected 2D PEMS-BAY HDF data, got {series.shape}")
+    series = series[..., None]
+    train_x, val_x, test_x, split_meta = _window_strict_raw_splits(
+        series,
+        seq_len=seq_len,
+        train_samples=train_samples,
+        val_samples=val_samples,
+        test_samples=test_samples,
+        stride=stride,
+        gap=gap,
+    )
+    with open(adj_path, "rb") as f:
+        payload = pickle.load(f, encoding="latin1")
+    adj = payload[2] if isinstance(payload, (tuple, list)) and len(payload) >= 3 else payload
+    adj = np.asarray(adj, dtype=np.float32)
+    degree = adj.sum(axis=1, keepdims=True)
+    adj = adj / np.clip(degree, 1.0, None)
+    metadata = {
+        "dataset_name": "PEMS-BAY",
+        "source": "huggingface:MintBruce/SkyTraffic",
+        "data_path": str(h5_path),
+        "adj_path": str(adj_path),
+        "series_shape": list(series.shape),
+        "split_samples": [train_samples, val_samples, test_samples],
+        **split_meta,
+    }
+    return train_x, val_x, test_x, adj, metadata
+
+
 def _load_antileakage_splits(dataset: str, args: argparse.Namespace):
     key = dataset.lower()
     if key in {"pems03", "pems04", "pems08"}:
@@ -204,6 +249,15 @@ def _load_antileakage_splits(dataset: str, args: argparse.Namespace):
             val_samples=args.val_samples,
             test_samples=args.test_samples,
             stride=args.stride,
+        )
+    elif key in {"pems-bay", "pemsbay"}:
+        train_x, val_x, test_x, adj, metadata = _load_strict_pems_bay_hf(
+            train_samples=args.train_samples,
+            val_samples=args.val_samples,
+            test_samples=args.test_samples,
+            seq_len=args.seq_len,
+            stride=args.stride,
+            gap=args.gap,
         )
     else:
         raise ValueError(f"unsupported anti-leakage dataset: {dataset}")
@@ -281,6 +335,11 @@ def main() -> int:
         choices=["full", "no_physics_residual_bank", "no_temporal_evidence_bank"],
         help="Use no_temporal_evidence_bank for a stricter check that excludes the strongest temporal interpolation bank.",
     )
+    parser.add_argument(
+        "--fixed-correction-key",
+        default="RegionAmplitudeScaled@1.50",
+        help="Pre-registered final correction key. Use an empty string to allow validation-based selection.",
+    )
     parser.add_argument("--skip-pypots-baselines", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -302,12 +361,14 @@ def main() -> int:
         "scenarios": args.scenarios,
         "seeds": args.seeds,
         "ablation": args.ablation,
+        "fixed_correction_key": args.fixed_correction_key or None,
     }
     if args.dry_run:
         print(json.dumps(protocol, indent=2))
         return 0
 
     device = resolve_device("cuda" if torch.cuda.is_available() else "cpu")
+    guard_module.FIXED_CORRECTION_KEY = args.fixed_correction_key or None
     rows: list[dict] = []
     metadata_by_run: dict[str, dict] = {}
     for dataset in args.datasets:
