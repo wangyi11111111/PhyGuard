@@ -24,10 +24,10 @@ data/cache/
 wandb/
 mlruns/
 tmp/
+results/antileakage_*/
 
 # OS/editor
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
-
