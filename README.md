@@ -18,6 +18,13 @@ Working paper title:
 
 ![PhyGuard mechanism](assets/phyguard_mechanism.png)
 
+**Figure 1. PhyGuard overview.** PhyGuard first obtains an initial traffic-state
+estimate from a spatiotemporal reconstruction core, then uses physics residuals,
+temporal evidence, and failure-mode signals to estimate local physical
+reliability. Reliable regions receive promoted physical correction, while risky
+regions keep the final estimate close to the reconstruction core to avoid
+harmful correction.
+
 PhyGuard is designed as a small correction layer on top of a strong
 spatiotemporal reconstruction core. The current research prototype uses a strong
 graph-time reconstruction core and adds the following PhyGuard components:
@@ -39,37 +46,6 @@ x_hat = x0 + gamma(i,t) * Delta_phys(i,t)
 
 where `x0` is the initial reconstruction, `Delta_phys(i,t)` is a local physical
 correction candidate, and `gamma(i,t)` is controlled by local reliability.
-
-## Mechanism Figure
-
-The mechanism below is the open-source README version of the paper Figure 1.
-The publication figure can be redrawn as SVG/TikZ from this structure.
-
-```mermaid
-flowchart LR
-    A["Sparse traffic observations<br/>X_obs: time x sensors<br/>missing / noise / incident / failure"] --> B["Reconstruction core<br/>initial prediction x0"]
-
-    B --> C["PhyGuard module"]
-
-    subgraph C["PhyGuard module"]
-        C1["Physics residual bank<br/>R_fd / R_g / R_t"]
-        C2["Temporal evidence<br/>mask pattern / trend change / neighbor agreement"]
-        C3["Failure-mode scorer<br/>s(i,t)"]
-        C1 --> C4["local reliability r(i,t)"]
-        C2 --> C4
-        C3 --> C4
-    end
-
-    G["fixed global physics weight lambda"] -. rejected .-> C
-    C4 --> D["Guarded correction<br/>x_hat = x0 + gamma(i,t) Delta_phys(i,t)"]
-    D --> E["Reconstructed traffic state"]
-
-    C4 --> F1["Reliable region<br/>high r(i,t)<br/>promote correction"]
-    C4 --> F2["Risky region<br/>low r(i,t)<br/>suppress correction<br/>keep close to x0"]
-```
-
-High-resolution concept art used during paper planning was generated locally and
-should be manually redrawn before final submission.
 
 ## Key Results
 
