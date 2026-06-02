@@ -49,6 +49,14 @@ correction candidate, and `gamma(i,t)` is controlled by local reliability.
 
 ## Key Results
 
+Important validation note: the table below is a planning/debug result from the
+quick protocol. Before submission claims, run the stricter anti-leakage protocol
+in `reproduce/run_antileakage_protocol.py`, which splits raw time first, inserts
+train/validation/test gaps, and then creates windows. This guards against
+inflated scores from adjacent-window overlap. See
+`ANTI_LEAKAGE_VALIDATION.md` for the first strict smoke results and remaining
+validation risks.
+
 All reported values are target-region masked MAE, averaged over 3 seeds. The
 main protocol uses 5 datasets, 4 scenarios, and 6 external baselines:
 `KNN`, `GRINLite`, `MagiNet`, `SAITS`, `BRITS`, and `ImputeFormer_PyPOTS`.

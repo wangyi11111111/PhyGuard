@@ -25,6 +25,28 @@ python reproduce/run_protocol.py \
 Add `--include-imputeformer` to run the PyPOTS ImputeFormer baseline with the
 same dataset/scenario/seed list.
 
+## Anti-Leakage Validation Protocol
+
+Use this protocol before making paper claims. For raw PEMS series, it splits
+the continuous time series first, inserts a gap between train/validation/test,
+and only then creates windows. The default `--stride 12 --gap 12` avoids the
+heavy adjacent-window overlap used by quick debug runs.
+
+```bash
+python reproduce/run_antileakage_protocol.py \
+  --datasets PEMS08 METR-LA \
+  --scenarios random_missing_50 incident_perturbation sensor_failure_30 \
+  --seeds 1 \
+  --epochs 5 \
+  --guard-epochs 20 \
+  --output-dir results/antileakage_validation
+```
+
+For METR-LA, the script uses the Hugging Face predefined train/validation/test
+files and subsamples timestamps by `--stride`; the original raw continuous
+series is not reconstructed from those windowed parquet files. Treat PEMS
+strict results as the cleaner anti-leakage check.
+
 ## Full Paper Protocol
 
 Run the full protocol only when datasets and baseline dependencies are ready:
@@ -48,4 +70,3 @@ python reproduce/aggregate_results.py \
 
 The aggregator writes `all_rows.csv`, `per_seed_pivot.csv`,
 `main_by_scenario.csv`, `main_by_dataset.csv`, and `main_overall.csv`.
-
