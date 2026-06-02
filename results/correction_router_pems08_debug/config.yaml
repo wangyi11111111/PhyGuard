@@ -1,0 +1,17 @@
+dataset: PEMS08
+source: E:/ASTGNN-9c2e19b98c4cedf1f35214d8789685b6381b3aad.zip
+debug_nodes: 20
+seed: 1
+epochs: 50
+scenarios:
+  - random_missing_50
+  - sensor_failure_30
+variants:
+  - GRINLite
+  - GRINLite_graph_delta
+  - LiteTrust_delta_only
+  - CorrectionV2_routed
+method:
+  name: LiteTrust-GRIN-Router
+  final_prediction: x_hat = x_data + g_graph * delta_graph + g_phys * delta_phys
+  routing: complete sensor failure hard-routes to graph correction; other regions use learned data/graph/physics expert weights

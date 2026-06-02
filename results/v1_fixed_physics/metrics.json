@@ -1,0 +1,60 @@
+{
+  "stage": "stage_4_v1_fixed_physics",
+  "v0_base": {
+    "test": {
+      "mae": 0.17202052474021912,
+      "rmse": 0.24265626072883606,
+      "mape": 1.2048918008804321,
+      "masked_mae": 0.11970497667789459,
+      "test_total_loss": 0.11969886347651482,
+      "test_data_loss": 0.11969886347651482,
+      "test_physics_loss": 0.5103209912776947,
+      "physics_residual_abs": 0.9999999701976776,
+      "device": "cuda",
+      "fallback_used": false
+    },
+    "final_val_masked_mae": 0.12322656065225601,
+    "min_val_masked_mae": 0.12322656065225601,
+    "first_train_data_loss": 0.7023839503526688,
+    "last_train_data_loss": 0.13404865562915802,
+    "final_val_physics_loss": 0.5101820230484009,
+    "final_val_residual_abs": 0.9999999701976776
+  },
+  "v1_fixed_physics": {
+    "test": {
+      "mae": 0.17192283272743225,
+      "rmse": 0.24278953671455383,
+      "mape": 1.2155733108520508,
+      "masked_mae": 0.11964919418096542,
+      "test_total_loss": 0.11964305862784386,
+      "test_data_loss": 0.11964305862784386,
+      "test_physics_loss": 0.5103192925453186,
+      "physics_residual_abs": 0.9999999403953552,
+      "device": "cuda",
+      "fallback_used": false
+    },
+    "final_val_masked_mae": 0.1231686919927597,
+    "min_val_masked_mae": 0.1231686919927597,
+    "first_train_data_loss": 0.7023839503526688,
+    "last_train_data_loss": 0.13397624343633652,
+    "final_val_physics_loss": 0.5101803839206696,
+    "final_val_residual_abs": 0.9999999403953552
+  },
+  "comparison": {
+    "val_masked_mae_delta_v1_minus_v0": -0.00005786865949630737,
+    "val_residual_abs_delta_v1_minus_v0": -0.000000029802322387695312
+  },
+  "criteria": {
+    "v0_train_loss_declined": true,
+    "v1_train_loss_declined": true,
+    "fixed_physics_reduces_val_mae": true,
+    "fixed_physics_reduces_val_residual": true,
+    "no_nan": true,
+    "recommend_enter_v2": true
+  },
+  "notes": {
+    "fixed_physics_effect_size": "very small on toy data",
+    "data_physics_conflict": "not observed at lambda_max=0.001",
+    "residual_scale": "bounded and stable after inverse-normalized physical-scale computation"
+  }
+}

@@ -1,0 +1,17 @@
+dataset: PEMS08
+source: E:/ASTGNN-9c2e19b98c4cedf1f35214d8789685b6381b3aad.zip
+debug_nodes: 20
+seed: 1
+epochs: 50
+method:
+  name: LiteTrust-GRIN-ReliabilityRouter
+  router: fixed monotonic reliability coefficients plus trainable bias
+  correction_clip: 1.0
+  graph_expert_scope: node_missing_ratio > 0.8
+  graph_inactive_redistribution: inactive graph weight goes 75% to physics and 25% to data when physics is enabled
+  physics_expert_update: signed residual correction plus lightweight FD flow projection
+  physics_projection_regularizer: penalize physics expert residual only when it is worse than data residual
+  physics_validity_gate: enabled, softly transfers unreliable physics weight back to data branch
+  physics_validity_calibration: observed-point supervision compares x_phys error against x_data error
+  rejected_variant: hard closed-form FD projection reduced residual but hurt random-missing MAE
+  prediction: x_hat = g_data * x_data + g_graph * x_graph + g_phys * x_phys

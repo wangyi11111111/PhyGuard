@@ -1,0 +1,25 @@
+seed: 1
+device: auto
+dataset:
+  name: toy
+  nodes: 20
+  seq_len: 24
+  channels: 3
+  train_samples: 96
+  val_samples: 32
+  test_samples: 32
+  missing_rate: 0.5
+  noise_std: 0.0
+model:
+  input_dim: 6
+  hidden_dim: 16
+  output_dim: 3
+  num_layers: 2
+  dropout: 0.1
+train:
+  epochs: 2
+  batch_size: 8
+  lr: 0.001
+  weight_decay: 0.0
+  num_workers: 0
+results_dir: results/smoke_test

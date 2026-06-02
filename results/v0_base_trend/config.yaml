@@ -1,0 +1,24 @@
+seed: 1
+device: auto
+dataset:
+  name: toy
+  nodes: 20
+  seq_len: 24
+  channels: 3
+  train_samples: 128
+  val_samples: 32
+  test_samples: 32
+  missing_rate: 0.5
+model:
+  input_dim: 6
+  hidden_dim: 32
+  output_dim: 3
+  num_layers: 2
+  dropout: 0.1
+train:
+  epochs: 10
+  batch_size: 16
+  lr: 0.001
+  weight_decay: 0.0
+  num_workers: 0
+results_dir: results/v0_base_trend

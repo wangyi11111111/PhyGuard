@@ -1,0 +1,4 @@
+method,random_mae,noise_mae,incident_mae,mean_mae,random_gain_pct,noise_gain_pct,incident_gain_pct,mean_gain_pct,verifier_gate_mean,harm_rate_mean
+generic_error_calibrated,0.639623,0.645684,0.641894,0.642401,1.07,1.51,2.52,1.70,,0.440
+physics_verified_v1,0.640389,0.647325,0.644983,0.644232,0.95,1.26,2.05,1.42,0.806,0.429
+physics_verified_v1b,0.639830,0.646277,0.643353,0.643153,1.04,1.42,2.30,1.58,0.949,0.434

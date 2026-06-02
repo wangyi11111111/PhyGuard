@@ -1,0 +1,13 @@
+check,scenario,command_flags,masked_mae,runtime_note,status
+save_cache_smoke,random_missing_50,--pretrain-epochs 1 --epochs 1 --save-grin-cache,1.725365,about_150s_under_cpu_contention,passed
+load_cache_smoke,random_missing_50,--pretrain-epochs 1 --epochs 1 --load-grin-cache,1.725365,about_87s_with_grin_baseline,passed
+litetrust_only_load_smoke,random_missing_50,--pretrain-epochs 1 --epochs 1 --load-grin-cache --litetrust-only,1.725365,about_19s,passed
+eval_cached_grin,random_missing_50,--pretrain-epochs 30 --epochs 0 --load-grin-cache --litetrust-only --eval-grin-only,0.646528,about_8s,passed
+eval_cached_grin,noise_random_missing,--pretrain-epochs 30 --epochs 0 --load-grin-cache --litetrust-only --eval-grin-only,0.655596,about_8s,passed
+eval_cached_grin,incident_perturbation,--pretrain-epochs 30 --epochs 0 --load-grin-cache --litetrust-only --eval-grin-only,0.658474,about_8s,passed
+default_litetrust_cached,random_missing_50,--pretrain-epochs 30 --epochs 5 --load-grin-cache --litetrust-only,0.640533,about_31s,passed
+default_litetrust_cached,noise_random_missing,--pretrain-epochs 30 --epochs 5 --load-grin-cache --litetrust-only,0.649023,about_31s,passed
+default_litetrust_cached,incident_perturbation,--pretrain-epochs 30 --epochs 5 --load-grin-cache --litetrust-only,0.644692,about_31s,passed
+scenario_aware_cached,random_missing_50,--pretrain-epochs 30 --epochs 5 --load-grin-cache --litetrust-only --scenario-aware,0.640685,about_31s,rejected_slightly_worse
+scenario_aware_cached,noise_random_missing,--pretrain-epochs 30 --epochs 5 --load-grin-cache --litetrust-only --scenario-aware,0.649245,about_31s,rejected_slightly_worse
+scenario_aware_cached,incident_perturbation,--pretrain-epochs 30 --epochs 5 --load-grin-cache --litetrust-only --scenario-aware,0.644782,about_31s,rejected_slightly_worse

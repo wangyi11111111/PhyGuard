@@ -1,0 +1,5 @@
+method,random_mae,noise_mae,incident_mae,mean_mae,random_gain_pct,noise_gain_pct,incident_gain_pct,mean_gain_pct,verifier_gate_mean,harm_rate_mean,note
+generic_error_calibrated,0.639623,0.645684,0.641894,0.642401,1.07,1.51,2.52,1.70,,0.440,current_best
+physics_verified_v1b,0.639830,0.646277,0.643353,0.643153,1.04,1.42,2.30,1.58,0.949,0.434,soft_utility_plus_weak_residual_penalty
+contrastive_utility_verifier_v1,0.639810,0.646233,0.643383,0.643142,1.04,1.43,2.29,1.58,0.949,0.435,soft_utility_no_residual_penalty
+contrastive_utility_verifier_v2,0.639810,0.646233,0.643382,0.643142,1.04,1.43,2.29,1.58,0.949,0.435,hard_utility_no_residual_penalty

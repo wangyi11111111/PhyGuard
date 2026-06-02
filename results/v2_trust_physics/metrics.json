@@ -1,0 +1,77 @@
+{
+  "stage": "stage_5_v2_trust_physics",
+  "v0_base": {
+    "test": {
+      "mae": 0.17199024558067322,
+      "rmse": 0.2421698272228241,
+      "mape": 1.238261342048645,
+      "masked_mae": 0.11915169656276703,
+      "physics_loss": 0.5105339586734772,
+      "physics_residual": 0.9999999403953552,
+      "device": "cpu",
+      "fallback_used": false
+    },
+    "final_val_masked_mae": 0.1227588877081871,
+    "final_val_physics_residual": 0.9999999701976776,
+    "first_train_data_loss": 0.7023440301418304,
+    "last_train_data_loss": 0.13376620970666409
+  },
+  "v1_fixed_physics": {
+    "test": {
+      "mae": 0.17190250754356384,
+      "rmse": 0.24335329234600067,
+      "mape": 1.3085588216781616,
+      "masked_mae": 0.11918668448925018,
+      "physics_loss": 0.5105662047863007,
+      "physics_residual": 1.0000000596046448,
+      "device": "cpu",
+      "fallback_used": false
+    },
+    "final_val_masked_mae": 0.12278339266777039,
+    "final_val_physics_residual": 1.0000000596046448,
+    "first_train_data_loss": 0.7023440301418304,
+    "last_train_data_loss": 0.13381122797727585
+  },
+  "v2_trust_physics": {
+    "test": {
+      "mae": 0.17043641209602356,
+      "rmse": 0.2405976951122284,
+      "mape": 1.2304879426956177,
+      "masked_mae": 0.11928901076316833,
+      "physics_loss": 0.06527017056941986,
+      "physics_residual": 0.9999999701976776,
+      "trust_mean": 0.1919352263212204,
+      "trust_std": 0.1985163688659668,
+      "trust_min": 0.01066623441874981,
+      "trust_max": 0.7134284377098083,
+      "device": "cpu",
+      "fallback_used": false
+    },
+    "final_val_masked_mae": 0.12270451337099075,
+    "final_val_physics_residual": 0.9999999701976776,
+    "final_trust_mean": 0.1880323439836502,
+    "final_trust_std": 0.19581513106822968,
+    "final_trust_min": 0.010439576581120491,
+    "final_trust_max": 0.7224682569503784,
+    "first_train_data_loss": 0.7029849663376808,
+    "last_train_data_loss": 0.1330865751951933
+  },
+  "comparison": {
+    "v1_minus_v0_val_mae": 0.00002450495958328247,
+    "v2_minus_v1_val_mae": -0.00007887929677963257,
+    "v2_minus_v0_val_mae": -0.0000543743371963501
+  },
+  "criteria": {
+    "v2_not_worse_than_v1": true,
+    "trust_mean_not_collapsed": true,
+    "trust_std_positive": true,
+    "v2_train_loss_declined": true,
+    "no_nan": true,
+    "recommend_enter_v3": true
+  },
+  "notes": {
+    "effect_size": "very small on toy data",
+    "trust_behavior": "non-collapsed but low mean; monitor on disrupted scenarios",
+    "device": "cpu used to avoid contention with another active Python/GPU training process"
+  }
+}

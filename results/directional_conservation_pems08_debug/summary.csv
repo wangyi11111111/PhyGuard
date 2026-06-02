@@ -1,0 +1,5 @@
+scenario,variant,masked_mae_final,masked_mae_data,physics_residual,graph_weight_failed,phys_weight_failed,directional_gate_failed,directional_delta_failed,directional_conservation_residual_failed,directional_shift_failed
+sensor_failure_30,ReliabilityRouter_default,1.267713,1.477277,0.302610,0.971852,0.016009,0.000000,0.000000,0.000000,0.000000
+sensor_failure_30,ReliabilityRouter_directional_physics,1.264947,1.473689,0.300440,0.971415,0.016267,0.382585,0.176402,0.827670,0.000000
+sensor_failure_30,ReliabilityRouter_no_physics,1.267197,1.477574,0.314777,0.997818,0.000000,0.000000,0.000000,0.000000,0.000000
+sensor_failure_30,Directional_physics_forced_shift_rejected,1.290321,1.490088,0.288345,0.912785,0.075576,0.409875,0.368612,0.819587,0.060675

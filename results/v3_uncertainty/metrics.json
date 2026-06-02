@@ -1,0 +1,73 @@
+{
+  "stage": "stage_6_v3_uncertainty",
+  "v2_trust_without_uncertainty": {
+    "test": {
+      "mae": 0.16917231678962708,
+      "rmse": 0.23959830403327942,
+      "mape": 1.1352667808532715,
+      "masked_mae": 0.11992082744836807,
+      "physics_loss": 0.07478965818881989,
+      "physics_residual": 0.9999999403953552,
+      "trust_mean": 0.19371724128723145,
+      "trust_std": 0.15061548352241516,
+      "trust_min": 0.05039522796869278,
+      "trust_max": 0.6745651364326477,
+      "device": "cpu",
+      "fallback_used": false
+    },
+    "final_val_masked_mae": 0.12329106032848358,
+    "final_trust_mean": 0.19066636264324188,
+    "final_trust_std": 0.14832082390785217,
+    "first_train_data_mae": 0.6998746916651726,
+    "last_train_data_mae": 0.1337414439767599
+  },
+  "v3_trust_with_uncertainty": {
+    "test": {
+      "mae": 0.16764943301677704,
+      "rmse": 0.24020731449127197,
+      "mape": 1.0311906337738037,
+      "masked_mae": 0.1154140904545784,
+      "physics_loss": 0.07241034507751465,
+      "physics_residual": 1.0000001192092896,
+      "trust_mean": 0.2009253352880478,
+      "trust_std": 0.19421641528606415,
+      "trust_min": 0.0351729653775692,
+      "trust_max": 0.7951683402061462,
+      "log_var_mean": -2.031625509262085,
+      "log_var_std": 0.35770782828330994,
+      "uncertainty_error_correlation": 0.4023129253443838,
+      "device": "cpu",
+      "fallback_used": false
+    },
+    "final_val_masked_mae": 0.11879702657461166,
+    "final_trust_mean": 0.19706732034683228,
+    "final_trust_std": 0.19137243926525116,
+    "final_trust_min": 0.03545420989394188,
+    "final_trust_max": 0.8099233508110046,
+    "final_log_var_mean": -2.032585382461548,
+    "final_log_var_std": 0.36034074425697327,
+    "final_uncertainty_error_correlation": 0.4072568900380604,
+    "first_train_data_mae": 0.7007306292653084,
+    "last_train_data_mae": 0.1313040591776371
+  },
+  "comparison": {
+    "v3_minus_v2_val_mae": -0.004494033753871918,
+    "v3_minus_v2_test_masked_mae": -0.004506736993789673
+  },
+  "criteria": {
+    "v3_not_worse_than_v2": true,
+    "log_var_has_variation": true,
+    "trust_mean_not_collapsed": true,
+    "trust_std_positive": true,
+    "uncertainty_correlation_finite": true,
+    "v3_train_mae_declined": true,
+    "no_nan": true,
+    "recommend_enter_v4": true
+  },
+  "notes": {
+    "use_uncertainty_loss": true,
+    "alpha_unc": 0.1,
+    "effect": "V3 improved validation and test masked MAE on toy data",
+    "caveat": "heteroscedastic loss became negative because log_var learned negative values; MAE still declined, but this should be monitored on disrupted scenarios"
+  }
+}

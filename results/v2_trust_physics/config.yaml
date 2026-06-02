@@ -1,0 +1,35 @@
+seed: 1
+device: cpu
+dataset:
+  name: toy
+  nodes: 20
+  seq_len: 24
+  channels: 3
+  train_samples: 128
+  val_samples: 32
+  test_samples: 32
+  missing_rate: 0.5
+model:
+  input_dim: 6
+  hidden_dim: 32
+  output_dim: 3
+  num_layers: 2
+  dropout: 0.1
+train:
+  epochs: 20
+  batch_size: 16
+  lr: 0.001
+  weight_decay: 0.0
+  num_workers: 0
+physics:
+  lambda_max: 0.005
+  warmup_start_epoch: 5
+  warmup_end_epoch: 15
+  loss: smooth_l1
+  residual: fundamental_diagram
+trust:
+  trust_floor: 0.3
+  beta_floor: 0.01
+  beta_smooth: 0.001
+  w_min: 0.0
+results_dir: results/v2_trust_physics

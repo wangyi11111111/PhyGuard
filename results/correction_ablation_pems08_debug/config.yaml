@@ -1,0 +1,14 @@
+dataset: PEMS08
+source: E:/ASTGNN-9c2e19b98c4cedf1f35214d8789685b6381b3aad.zip
+debug_nodes: 20
+seed: 1
+epochs: 50
+scenarios:
+  - random_missing_50
+  - sensor_failure_30
+variants:
+  - GRINLite
+  - GRINLite_graph_delta
+  - LiteTrust_delta_only
+  - CorrectionV1_full
+note: Runtime directory creation is unreliable under this local Chinese path, so these artifacts were materialized from the verified script output.

@@ -1,0 +1,24 @@
+{
+  "scenario": "incident_perturbation",
+  "change": "speed-only incident plus anomaly-tail conflict",
+  "v3_without_conflict": {
+    "masked_mae": 0.16596704721450806,
+    "incident_region_MAE": 1.0292682647705078,
+    "trust_mean_normal": 0.26983872056007385,
+    "trust_mean_incident": 0.32412123680114746
+  },
+  "v4_with_conflict": {
+    "masked_mae": 0.16596800088882446,
+    "incident_region_MAE": 1.0291597843170166,
+    "trust_mean_normal": 0.23655636608600616,
+    "trust_mean_incident": 0.22907687723636627
+  },
+  "criteria": {
+    "incident_trust_lower_than_normal": true,
+    "incident_mae_not_worse": true,
+    "overall_mae_not_much_worse": true,
+    "trust_not_collapsed": true,
+    "no_nan": true,
+    "passed": true
+  }
+}

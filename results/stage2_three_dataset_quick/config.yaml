@@ -1,0 +1,25 @@
+datasets:
+  PEMS08:
+    nodes: 20
+    residual: fundamental
+  PEMS04:
+    nodes: 24
+    residual: fundamental
+  METR-LA:
+    nodes: 18
+    residual: graph_speed
+scenarios:
+  - random_missing_50
+  - sensor_failure_30
+models:
+  - BaseTCN
+  - FixedPhysics
+  - LiteTrustPINN_full
+epochs: 10
+train_samples: 16
+val_samples: 8
+test_samples: 8
+device: cpu
+fallback_used: true
+formal_result: false
+note: ultra-quick debug subset because the 30-epoch run exceeded the local timeout while another GPU training process was active

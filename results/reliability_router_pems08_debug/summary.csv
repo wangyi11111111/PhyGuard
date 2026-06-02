@@ -1,0 +1,9 @@
+scenario,variant,masked_mae,masked_mae_data,physics_residual,phys_weight_mean,phys_weight_missing_or_failed,graph_weight_failed,graph_delta_failed,delta_phys_missing
+random_missing_50,GRINLite,0.893680,0.893680,0.425211,,,,,
+random_missing_50,LiteTrust_delta_only_bounded,0.817050,0.939640,0.511364,0.650635,0.715111,,,0.417624
+random_missing_50,ReliabilityRouter_self_calibrated_validity,0.832526,0.927530,0.483124,0.519217,0.609644,,,0.406617
+random_missing_50,ReliabilityRouter_no_physics,0.905522,0.905522,0.461446,0.000000,0.000000,,,0.007673
+sensor_failure_30,GRINLite,1.445032,1.445032,0.288559,,,,,
+sensor_failure_30,GRINLite_graph_delta,1.267702,1.445032,0.351629,,, ,0.775498,
+sensor_failure_30,ReliabilityRouter_self_calibrated_validity,1.256050,1.441661,0.283869,0.138819,0.014439,0.974234,0.809786,0.098932
+sensor_failure_30,ReliabilityRouter_no_physics,1.265352,1.458025,0.311943,0.000000,0.000000,0.997758,0.813489,0.005318

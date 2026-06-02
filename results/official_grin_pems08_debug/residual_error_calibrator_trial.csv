@@ -1,0 +1,2 @@
+scenario,protocol,official_grin,previous_litetrust_no_utility,residual_error_no_utility,residual_error_utility,shrinkage_error_utility,decision
+random_missing_50,10e_grin_pretrain_plus_3e_correction,1.009418,1.008032,1.017177,1.017980,1.008142,keep_optional_default_off

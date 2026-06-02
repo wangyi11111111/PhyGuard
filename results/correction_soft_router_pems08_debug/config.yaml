@@ -1,0 +1,18 @@
+dataset: PEMS08
+source: E:/ASTGNN-9c2e19b98c4cedf1f35214d8789685b6381b3aad.zip
+debug_nodes: 20
+seed: 1
+epochs: 50
+method:
+  name: LiteTrust-GRIN-Router
+  correction_clip: 1.0
+  soft_failure_graph_prior: 0.85
+  soft_failure_phys_prior: 0.05
+  prediction: x_hat = x_data + g_graph * delta_graph + g_phys * delta_phys
+variants:
+  - GRINLite
+  - GRINLite_graph_delta
+  - LiteTrust_delta_only_bounded
+  - CorrectionV2_soft_router_bounded
+  - CorrectionV2_no_physics
+  - CorrectionV2_hard_router_bounded

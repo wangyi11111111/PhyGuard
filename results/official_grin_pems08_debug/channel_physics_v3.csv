@@ -1,0 +1,4 @@
+scenario,official_grin,v2_physics_only,v3_physics_only,v2_fusion,v3_channel_fusion,v3_vs_official_pct,v3_vs_v2_fusion_pct,v3_vs_v3_physics_only_pct,phys_weight_missing_mean,generic_weight_missing_mean,phys_weight_noise_mean,generic_weight_noise_mean,phys_weight_incident_mean,generic_weight_incident_mean,phys_weight_incident_missing_mean,generic_weight_incident_missing_mean,fd_strength_mean,graph_strength_mean,temporal_strength_mean
+random_missing_50,0.682696,0.671009,0.666338,0.663284,0.662996,2.89,0.04,0.50,0.600093,0.399907,,,,,,0.522194,0.542859,0.516085
+noise_random_missing,0.683350,0.671675,0.666577,0.663839,0.662900,2.99,0.14,0.55,0.600415,0.399585,0.482380,0.517620,,,,0.521141,0.543177,0.516668
+incident_perturbation,0.679828,0.669710,0.665267,0.661747,0.661534,2.69,0.03,0.56,0.599927,0.400073,,,,0.547907,0.452093,0.610640,0.389360,0.522085,0.542907,0.516156

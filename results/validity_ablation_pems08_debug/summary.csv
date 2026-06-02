@@ -1,0 +1,7 @@
+scenario,reliability_router_with_validity,reliability_router_no_validity,no_physics,best,validity_effect
+random_missing_50,0.918611,0.907277,0.999535,no_validity,-0.011334
+sensor_failure_30,1.255010,1.255813,1.253872,no_physics,+0.000803
+block_missing,1.696104,1.695540,1.696935,no_validity,-0.000564
+temporal_missing,0.945727,0.944070,1.010718,no_validity,-0.001657
+noise_random_missing,0.909122,0.901495,1.001749,no_validity,-0.007627
+incident_perturbation,0.922968,0.908902,1.002917,no_validity,-0.014066

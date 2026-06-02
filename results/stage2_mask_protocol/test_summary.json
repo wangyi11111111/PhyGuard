@@ -1,0 +1,25 @@
+{
+  "stage": 2,
+  "command": "pytest tests/test_masks.py",
+  "collected": 6,
+  "passed": 6,
+  "failed": 0,
+  "uses_real_dataset": false,
+  "downloaded_dataset": false,
+  "covered": [
+    "random_missing_mask",
+    "sensor_failure_mask",
+    "block_missing_mask",
+    "temporal_missing_mask",
+    "add_gaussian_noise",
+    "incident_perturbation"
+  ],
+  "eligible_next_stage": true
+  ,
+  "regression_check": {
+    "command": "pytest tests/test_masks.py tests/test_model_shapes.py tests/test_physics_residuals.py",
+    "collected": 9,
+    "passed": 9,
+    "failed": 0
+  }
+}

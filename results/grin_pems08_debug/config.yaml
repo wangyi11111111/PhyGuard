@@ -1,0 +1,10 @@
+source: GRIN-style compact baseline
+dataset: PEMS08 real debug from ASTGNN zip
+epochs:
+  smoke: 10
+  strong_run: 50
+hidden_dim: 48
+scenarios:
+  - random_missing_50
+  - sensor_failure_30
+note: compact baseline, not official GRIN implementation

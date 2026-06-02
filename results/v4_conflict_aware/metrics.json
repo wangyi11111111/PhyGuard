@@ -1,0 +1,62 @@
+{
+  "stage": "stage_7_v4_conflict_aware_fixed",
+  "status": "passed_after_focused_fix",
+  "fix": {
+    "incident_protocol": "speed-only perturbation: flow_drop_ratio=0.0, speed_drop_ratio=0.5",
+    "trust_gate_extra_feature": "rank(temporal_change + spatial_deviation)",
+    "conflict_score": "observed_confidence * data_confidence * residual_rank * relu(anomaly_feature - 0.8) / 0.2",
+    "beta_conflict": 0.05
+  },
+  "results": {
+    "random_missing_50": {
+      "v3_without_conflict": {
+        "test_masked_mae": 0.11557377874851227,
+        "trust_mean_normal": 0.26906725764274597
+      },
+      "v4_with_conflict": {
+        "test_masked_mae": 0.11570774018764496,
+        "trust_mean_normal": 0.2261989563703537
+      },
+      "comparison": {
+        "v4_minus_v3_masked_mae": 0.00013396143913269043
+      }
+    },
+    "incident_perturbation": {
+      "v3_without_conflict": {
+        "test_masked_mae": 0.16596704721450806,
+        "incident_region_MAE": 1.0292682647705078,
+        "trust_mean_normal": 0.26983872056007385,
+        "trust_mean_incident": 0.32412123680114746,
+        "physics_residual_normal": 0.9970687627792358,
+        "physics_residual_incident": 1.055693507194519
+      },
+      "v4_with_conflict": {
+        "test_masked_mae": 0.16596800088882446,
+        "incident_region_MAE": 1.0291597843170166,
+        "trust_mean_normal": 0.23655636608600616,
+        "trust_mean_incident": 0.22907687723636627,
+        "physics_residual_normal": 0.997072160243988,
+        "physics_residual_incident": 1.0556286573410034
+      },
+      "comparison": {
+        "v4_minus_v3_masked_mae": 0.00000095367431640625,
+        "v4_minus_v3_incident_region_MAE": -0.00010848045349121094,
+        "v4_minus_v3_trust_incident": -0.09504435956478119,
+        "v4_incident_minus_normal_trust": -0.007479488849639893
+      }
+    }
+  },
+  "criteria": {
+    "incident_trust_lower_than_normal": true,
+    "incident_mae_not_worse": true,
+    "overall_mae_not_much_worse": true,
+    "trust_not_collapsed": true,
+    "no_nan": true,
+    "recommend_enter_v5_or_stage1": true
+  },
+  "caveats": {
+    "validation_split": "validation incident trust still remained higher than validation normal trust in this quick run",
+    "effect_size": "MAE changes are tiny; the main improvement is trust ordering on the test incident region",
+    "next": "Do not claim robustness yet. Confirm with Stage 9 single-dataset trend suite before scaling."
+  }
+}

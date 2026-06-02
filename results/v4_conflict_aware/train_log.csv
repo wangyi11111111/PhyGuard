@@ -1,0 +1,5 @@
+scenario,variant,epoch,val_masked_mae,val_trust_mean_normal,val_trust_mean_incident,val_incident_region_MAE
+random_missing_50,v3_without_conflict,20,0.1186303123831749,0.26477324962615967,,
+random_missing_50,v4_with_conflict,20,0.11874836683273315,0.22306421399116516,,
+incident_perturbation,v3_without_conflict,20,0.16358137130737305,0.25371962785720825,0.5002913475036621,0.8910304307937622
+incident_perturbation,v4_with_conflict,20,0.1635894477367401,0.2138366848230362,0.5251480937004089,0.8910971879959106

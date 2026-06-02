@@ -1,0 +1,4 @@
+scenario,official_grin,previous_gated,region_aware_gated,phys_weight_missing_mean,generic_weight_missing_mean,phys_weight_noise_mean,generic_weight_noise_mean,phys_weight_incident_mean,generic_weight_incident_mean,phys_weight_incident_missing_mean,generic_weight_incident_missing_mean
+random_missing_50,0.682696,0.669968,0.669702,0.530048,0.469952,,,,,,
+noise_random_missing,0.683350,0.668720,0.668535,0.531199,0.468801,0.404896,0.595104,,,,
+incident_perturbation,0.679828,0.668542,0.668249,0.530432,0.469568,,,,0.466888,0.533112,0.528842,0.471158

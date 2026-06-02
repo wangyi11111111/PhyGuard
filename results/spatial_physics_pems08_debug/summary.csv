@@ -1,0 +1,7 @@
+scenario,variant,masked_mae_final,masked_mae_data,physics_residual,phys_weight_mean,phys_weight_missing_or_failed,graph_weight_failed,spatial_phys_gate_missing_or_failed,spatial_phys_delta_missing_or_failed,delta_phys_missing
+random_missing_50,ReliabilityRouter_without_spatial_physics,0.855408,0.948843,0.459327,0.516075,0.605624,,0.000000,0.000000,0.374478
+random_missing_50,ReliabilityRouter_with_spatial_physics,0.855646,0.949039,0.459904,0.516079,0.605626,,0.000000,0.000000,0.374630
+random_missing_50,ReliabilityRouter_no_physics,0.914612,0.914612,0.420700,0.000000,0.000000,,0.000000,0.000000,0.055863
+sensor_failure_30,ReliabilityRouter_without_spatial_physics,1.282861,1.519565,0.305449,0.135973,0.016784,0.970531,0.000000,0.000000,0.100047
+sensor_failure_30,ReliabilityRouter_with_spatial_physics,1.279316,1.511655,0.304210,0.136766,0.017473,0.969395,0.330623,0.161436,0.197663
+sensor_failure_30,ReliabilityRouter_no_physics,1.278230,1.512310,0.313157,0.000000,0.000000,0.997742,0.000000,0.000000,0.041588

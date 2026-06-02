@@ -1,0 +1,32 @@
+{
+  "scenario": "incident_perturbation",
+  "change": "conflict score uses residual rank plus observed temporal-change rank",
+  "v3_without_conflict": {
+    "masked_mae": 0.15664677321910858,
+    "incident_region_MAE": 0.8542221784591675,
+    "trust_mean": 0.2731301188468933,
+    "trust_mean_normal": 0.2529532313346863,
+    "trust_mean_incident": 0.6564908623695374
+  },
+  "v4_with_conflict": {
+    "masked_mae": 0.15665286779403687,
+    "incident_region_MAE": 0.8532844185829163,
+    "trust_mean": 0.11321087181568146,
+    "trust_mean_normal": 0.08355577290058136,
+    "trust_mean_incident": 0.6766576766967773
+  },
+  "comparison": {
+    "v4_minus_v3_masked_mae": 0.000006094574928283691,
+    "v4_minus_v3_incident_region_MAE": -0.0009377598762512207,
+    "v4_minus_v3_trust_incident": 0.02016681432723999,
+    "v4_incident_minus_normal_trust": 0.593101903796196
+  },
+  "criteria": {
+    "incident_trust_lower_than_normal": false,
+    "incident_mae_not_worse": true,
+    "overall_mae_not_much_worse": true,
+    "trust_not_collapsed": true,
+    "no_nan": true,
+    "passed": false
+  }
+}

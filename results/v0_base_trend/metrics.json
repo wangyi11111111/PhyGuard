@@ -1,0 +1,44 @@
+{
+  "stage": "stage_3_v0_base_trend",
+  "naive_mean_fill": {
+    "channel_mean": [
+      -0.004385091627665395,
+      0.0061964824335412364,
+      0.002923070078537871
+    ],
+    "val": {
+      "mae": 0.42057085037231445,
+      "rmse": 0.7145938277244568,
+      "mape": 0.5058426856994629,
+      "masked_mae": 0.8441827893257141
+    },
+    "test": {
+      "mae": 0.41755032539367676,
+      "rmse": 0.71219402551651,
+      "mape": 0.5000839829444885,
+      "masked_mae": 0.8422657251358032
+    },
+    "fallback_used": false
+  },
+  "base_tcn_graph": {
+    "test": {
+      "mae": 0.20010891556739807,
+      "rmse": 0.2718766927719116,
+      "mape": 1.61155366897583,
+      "masked_mae": 0.16409282386302948,
+      "test_loss": 0.16408534348011017,
+      "device": "cuda",
+      "fallback_used": false
+    },
+    "final_val_masked_mae": 0.17008638381958008,
+    "min_val_masked_mae": 0.17008638381958008,
+    "first_train_loss": 0.7023839503526688,
+    "last_train_loss": 0.17982498928904533
+  },
+  "criteria": {
+    "train_loss_declined": true,
+    "base_val_beats_naive": true,
+    "no_nan": true,
+    "passed": true
+  }
+}

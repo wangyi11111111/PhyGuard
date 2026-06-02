@@ -1,0 +1,4 @@
+scenario,official_repo_grin,official_repo_litetrust_grin,relative_gain_pct,protocol
+random_missing_50,0.646528,0.640533,0.93,30e_grin_pretrain_plus_5e_correction
+noise_random_missing,0.655596,0.649023,1.00,30e_grin_pretrain_plus_5e_correction
+incident_perturbation,0.658474,0.644692,2.09,30e_grin_pretrain_plus_5e_correction

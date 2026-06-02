@@ -1,0 +1,5 @@
+method,random_mae,noise_mae,incident_mae,mean_mae,random_gain_pct,noise_gain_pct,incident_gain_pct,mean_gain_pct,gate_mean,hard_negative_ratio,gate_hard_negative_mean,gate_safe_mean,note
+generic_error_calibrated,0.639623,0.645684,0.641894,0.642401,1.07,1.51,2.52,1.70,,,,,current_best_without_verifier
+two_stage_floor08_p1p1,0.638987,0.644911,0.642410,0.642103,1.17,1.63,2.44,1.75,0.891,,,,current_best
+hardneg_floor08_m002,0.638987,0.644917,0.642418,0.642107,1.17,1.63,2.44,1.75,0.890,0.374,0.884,0.894,hard_negative_verifier
+hardneg_floor08_m005,0.638987,0.644917,0.642417,0.642107,1.17,1.63,2.44,1.75,0.890,0.374,0.884,0.894,hard_negative_verifier_stricter_margin

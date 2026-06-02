@@ -1,0 +1,21 @@
+dataset: toy
+fallback_used: false
+seed: 1
+epochs: 20
+batch_size: 16
+hidden_dim: 32
+device: cpu
+scenarios:
+  - random_missing_50
+  - sensor_failure_30
+  - incident_perturbation
+models:
+  - V0_BaseTCN
+  - V1_FixedPhysics
+  - V2_TrustPhysics
+  - V3_TrustPhysics_Uncertainty
+  - V4_ConflictAware_LiteTrust
+notes:
+  - Stage 8 collocation sampling was skipped because it is optional.
+  - This is a single-dataset trend gate, not a full benchmark.
+  - No large datasets were downloaded.

@@ -1,0 +1,7 @@
+method,random_mae,noise_mae,incident_mae,mean_mae,random_gain_pct,noise_gain_pct,incident_gain_pct,mean_gain_pct
+default,0.640533,0.649023,0.644692,0.644749,0.93,1.00,2.09,1.34
+selective_harm,0.641283,0.650070,0.647179,0.646177,0.81,0.84,1.72,1.12
+physics_vetted,0.659235,0.670424,0.666385,0.665348,-1.97,-2.26,-1.20,-1.81
+generic_only,0.639645,0.645759,0.642016,0.642473,1.06,1.50,2.50,1.69
+generic_error_calibrated,0.639623,0.645684,0.641894,0.642401,1.07,1.51,2.52,1.70
+utility_router,0.640383,0.648423,0.644868,0.644558,0.95,1.09,2.07,1.37

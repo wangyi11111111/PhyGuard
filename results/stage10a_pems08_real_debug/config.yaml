@@ -1,0 +1,47 @@
+dataset:
+  name: pems08_debug
+  root: data/raw/pems08
+  zip_path: E:/ASTGNN-9c2e19b98c4cedf1f35214d8789685b6381b3aad.zip
+  nodes: 20
+  seq_len: 24
+  channels: 3
+  train_samples: 64
+  val_samples: 16
+  test_samples: 16
+  missing_rate: 0.5
+models:
+  - BaseTCN
+  - FixedPhysics
+  - LiteTrustPINN_full
+scenarios:
+  - random_missing_50
+  - sensor_failure_30
+epochs: 10
+batch_size: 16
+hidden_dim: 32
+device: cpu
+real_data_used: true
+fallback_used: false
+source: ASTGNN zip PEMS08.npz
+physics:
+  channel_order: flow_occupancy_speed
+  residual: calibrated_fundamental
+  formula: flow - alpha * occupancy * speed
+  alpha_source: train split
+trust:
+  extra_features:
+    - temporal_change_rank
+    - spatial_deviation_rank
+    - local_missing_ratio
+    - residual_rank
+  trust_min_std: 0.08
+  beta_variance: 0.02
+  beta_rank: 0.05
+  rank_margin: 0.1
+  conflict_start_epoch: 5
+correction_v1_final:
+  final_prediction: mu_data + graph_delta + trust * delta_phys
+  pretrain_epochs: 0
+  observed_aux_weight: 0.1
+  graph_delta_activation: node_missing_ratio > 0.9
+  target_debug_improvement: at least 5 percent over GRINLite

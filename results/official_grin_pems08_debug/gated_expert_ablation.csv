@@ -1,0 +1,4 @@
+scenario,official_grin,generic,physics,gated,gated_vs_official_pct,gated_vs_generic_pct,gated_vs_physics_pct
+random_missing_50,0.682696,0.672306,0.676001,0.669968,1.86,0.35,0.89
+noise_random_missing,0.683350,0.672115,0.673673,0.668720,2.14,0.51,0.74
+incident_perturbation,0.679828,0.670578,0.674999,0.668542,1.66,0.30,0.96
