@@ -43,6 +43,16 @@ results/*_smoke*/
 # Do not keep large visual-case arrays in git.
 results/phyguard_visual_case/*.npz
 
+# LaTeX build cache. Keep source files, bibliography, figures, and optional PDFs.
+paper/**/*.aux
+paper/**/*.bbl
+paper/**/*.blg
+paper/**/*.log
+paper/**/*.out
+paper/**/*.spl
+paper/**/*.synctex.gz
+paper/**/*.toc
+
 # OS/editor
 .DS_Store
 Thumbs.db

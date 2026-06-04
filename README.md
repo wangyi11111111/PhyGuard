@@ -54,6 +54,17 @@ strong reconstruction backbones: BRITS, SAITS, ImputeFormer, and MagiNet. The
 main protocol uses five traffic datasets, three disruption scenarios, and three
 random seeds. Values are target-region masked MAE.
 
+The four backbones are selected to cover different reconstruction biases rather
+than minor variants of one architecture. BRITS represents recurrent
+bidirectional imputation through forward--backward temporal state propagation.
+SAITS represents self-attention-based time-series imputation and emphasizes
+long-range temporal dependency modeling. ImputeFormer represents
+transformer-style masked spatiotemporal reconstruction with structured
+missing-pattern modeling. MagiNet represents mask-aware graph repair for traffic
+data, where spatial neighborhood structure and missingness are jointly encoded.
+This diversity is used to test whether PhyGuard works as a backbone-agnostic
+local reliability guard.
+
 | Evidence | Result |
 |---|---:|
 | Average MAE reduction over all paired runs | 7.04% |
@@ -69,6 +80,7 @@ be preserved, corrected, or corrected only within a bounded range.
 
 Aggregated paper evidence is in `results/phyguard_paper_evidence/`. The visual
 case used in the manuscript is in `results/phyguard_visual_case/`.
+The current manuscript source is placed under `paper/`.
 
 ## Repository Structure
 
