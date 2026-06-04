@@ -1216,6 +1216,7 @@ def _run_one_scenario(
     ablation: str = "full",
     case_study_dir: Path | None = None,
     dataset: str = "",
+    return_predictions: bool = False,
 ):
     magi_train, magi_val, magi_test = _run_maginet_all_splits(scenario, train, val, test, adj, device, epochs)
     saits_train, saits_val, saits_test = _run_saits_all_splits(train, val, test, device, epochs)
@@ -1324,6 +1325,14 @@ def _run_one_scenario(
         rows.append({"model": f"Bank_{name}", **compute_metrics(pred, test[0], target_mask), **bank_stats})
     for name, pred in sorted(temporal_bank.items()):
         rows.append({"model": f"Bank_{name}", **compute_metrics(pred, test[0], target_mask), **temporal_stats})
+    if return_predictions:
+        predictions = {
+            "magi": magi_test.astype(np.float32),
+            "physics": phys_test.astype(np.float32),
+            "temporal": temp_test.astype(np.float32),
+            "phyguard": safe_test.astype(np.float32),
+        }
+        return rows, predictions
     return rows
 
 

@@ -63,7 +63,16 @@ def _physics_residual(x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
     return torch.zeros_like(x[..., :1])
 
 
-def _train_temporal_anchor_litetrust(train, val, test, adj: np.ndarray, device: torch.device, epochs: int, seed: int) -> list[dict]:
+def _train_temporal_anchor_litetrust(
+    train,
+    val,
+    test,
+    adj: np.ndarray,
+    device: torch.device,
+    epochs: int,
+    seed: int,
+    fixed_alpha: float | None = None,
+) -> list[dict]:
     torch.manual_seed(seed)
     train_full, train_obs, train_mask = train
     val_full, val_obs, val_mask = val
@@ -151,14 +160,19 @@ def _train_temporal_anchor_litetrust(train, val, test, adj: np.ndarray, device: 
         val_out = model(val_o, val_m, adj_t)
         val_anchor = val_out["x_anchor"].cpu().numpy().astype(np.float32)
         val_pred = val_out["mu"].cpu().numpy().astype(np.float32)
-    best_alpha = 1.0
-    best_alpha_val = float("inf")
-    for alpha in np.linspace(0.0, 1.0, 21):
-        candidate = val_anchor + float(alpha) * (val_pred - val_anchor)
-        mae = compute_metrics(candidate, val_full, 1.0 - val_mask)["masked_mae"]
-        if mae < best_alpha_val:
-            best_alpha_val = float(mae)
-            best_alpha = float(alpha)
+    if fixed_alpha is None:
+        best_alpha = 1.0
+        best_alpha_val = float("inf")
+        for alpha in np.linspace(0.0, 1.0, 21):
+            candidate = val_anchor + float(alpha) * (val_pred - val_anchor)
+            mae = compute_metrics(candidate, val_full, 1.0 - val_mask)["masked_mae"]
+            if mae < best_alpha_val:
+                best_alpha_val = float(mae)
+                best_alpha = float(alpha)
+    else:
+        best_alpha = float(fixed_alpha)
+        candidate = val_anchor + best_alpha * (val_pred - val_anchor)
+        best_alpha_val = float(compute_metrics(candidate, val_full, 1.0 - val_mask)["masked_mae"])
 
     with torch.no_grad():
         test_out = model(

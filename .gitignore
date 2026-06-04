@@ -25,8 +25,23 @@ wandb/
 mlruns/
 tmp/
 results/antileakage_*/
+results/failure_aware_*/
+results/imputeformer_*/
+results/local_utility_guard*/
 results/leakage_check_*/
+results/phyguard_plugin_*/
+results/phyguard_v12_*/
+results/strong_external_*/
 results/strict_fixed_smoke/
+results/*_smoke*/
+!results/.gitkeep
+!results/phyguard_paper_evidence/
+!results/phyguard_paper_evidence/**
+!results/phyguard_visual_case/
+!results/phyguard_visual_case/**
+
+# Do not keep large visual-case arrays in git.
+results/phyguard_visual_case/*.npz
 
 # OS/editor
 .DS_Store

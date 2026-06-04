@@ -52,12 +52,30 @@ strict results as the cleaner anti-leakage check.
 Run the full protocol only when datasets and baseline dependencies are ready:
 
 ```bash
-python reproduce/run_protocol.py \
+python reproduce/run_phyguard_plugin_strong_backbones.py \
   --datasets PEMS03 PEMS04 PEMS08 PEMS-BAY METR-LA \
-  --scenarios random_missing_50 sensor_failure_30 incident_perturbation noise_random_missing \
+  --scenarios random_missing_50 sensor_failure_30 incident_perturbation \
   --seeds 1 2 3 \
-  --include-imputeformer \
-  --output-root results/reproduce_full
+  --backbones BRITS SAITS ImputeFormer MagiNet \
+  --output-dir results/reproduce_full
+```
+
+Build paper evidence tables from completed runs:
+
+```bash
+python reproduce/build_phyguard_paper_evidence.py \
+  --input-dir results/reproduce_full \
+  --output-dir results/phyguard_paper_evidence
+```
+
+Create the qualitative case figure:
+
+```bash
+python reproduce/create_phyguard_visual_case.py \
+  --dataset PEMS-BAY \
+  --scenario random_missing_50 \
+  --seed 1 \
+  --output-dir results/phyguard_visual_case
 ```
 
 ## Aggregate Results

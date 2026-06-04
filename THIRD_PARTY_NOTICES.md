@@ -26,11 +26,11 @@ model implementations remain governed by their own licenses and terms.
 
 ## Datasets
 
-| Dataset | Role | License / Access Notes |
+| Dataset | Source used in code | License / Access Notes |
 |---|---|---|
-| PEMS03 / PEMS04 / PEMS08 | traffic benchmark datasets | derived from Caltrans PeMS data and public benchmark releases; users should comply with the original PeMS/data-release terms |
-| METR-LA | traffic benchmark dataset | commonly distributed through DCRNN/traffic forecasting benchmark mirrors; check the mirror license and original data source terms |
-| PEMS-BAY | traffic benchmark dataset | commonly distributed through DCRNN/traffic forecasting benchmark mirrors; check the mirror license and original data source terms |
+| PEMS03 / PEMS04 / PEMS08 | Zenodo record `7816008` | derived from Caltrans PeMS data and public benchmark releases; users should comply with original PeMS and mirror terms |
+| METR-LA | Hugging Face dataset `witgaw/METR-LA` | check the Hugging Face dataset card, mirror license, and original data source terms |
+| PEMS-BAY | Hugging Face dataset `MintBruce/SkyTraffic` | check the Hugging Face dataset card, mirror license, and original data source terms |
 
 ## Release Guidance
 
@@ -41,4 +41,3 @@ model implementations remain governed by their own licenses and terms.
   dataset/model sources and list exact package versions.
 - Re-run final paper tables on the release branch before camera-ready
   submission.
-

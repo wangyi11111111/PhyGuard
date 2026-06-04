@@ -11,8 +11,8 @@ constraint into a **local reliability guard** and a **guarded correction signal*
 
 Working paper title:
 
-> PhyGuard: Physics-Guided Reliability Guard for Robust Sparse Traffic State
-> Reconstruction
+> PhyGuard: A Physics-Reliability-Aware Guard Framework for Sparse and
+> Disrupted Traffic State Reconstruction
 
 ## Method Overview
 
@@ -49,56 +49,26 @@ correction candidate, and `gamma(i,t)` is controlled by local reliability.
 
 ## Key Results
 
-Important validation note: the table below is a planning/debug result from the
-quick protocol. Before submission claims, run the stricter anti-leakage protocol
-in `reproduce/run_antileakage_protocol.py`, which splits raw time first, inserts
-train/validation/test gaps, and then creates windows. This guards against
-inflated scores from adjacent-window overlap. See
-`ANTI_LEAKAGE_VALIDATION.md` for the first strict smoke results and remaining
-validation risks.
+Current paper evidence evaluates PhyGuard as a plug-in guard on top of four
+strong reconstruction backbones: BRITS, SAITS, ImputeFormer, and MagiNet. The
+main protocol uses five traffic datasets, three disruption scenarios, and three
+random seeds. Values are target-region masked MAE.
 
-All reported values are target-region masked MAE, averaged over 3 seeds. The
-main protocol uses 5 datasets, 4 scenarios, and 6 external baselines:
-`KNN`, `GRINLite`, `MagiNet`, `SAITS`, `BRITS`, and `ImputeFormer_PyPOTS`.
-
-### Overall Main Result
-
-| Scope | Runs | Best external | PhyGuard | Gain vs best | Wins |
-|---|---:|---:|---:|---:|---:|
-| 5 datasets x 4 scenarios x 3 seeds | 60 | 0.5316 +/- 0.3762 | 0.4029 +/- 0.3397 | +22.21% | 55/60 |
-
-### Scenario Breakdown
-
-| Scenario | Best external | PhyGuard | Gain vs best | Wins |
-|---|---:|---:|---:|---:|
-| random_missing_50 | 0.4194 +/- 0.2581 | 0.2438 +/- 0.0793 | +32.73% | 15/15 |
-| noise_random_missing | 0.4247 +/- 0.2573 | 0.2626 +/- 0.0760 | +28.18% | 15/15 |
-| incident_perturbation | 0.4580 +/- 0.2966 | 0.3000 +/- 0.1182 | +26.31% | 15/15 |
-| sensor_failure_30 | 0.8244 +/- 0.5023 | 0.8052 +/- 0.4768 | +1.62% | 10/15 |
-
-Sensor failure is intentionally reported as a modest-gain scenario rather than
-the primary claim.
-
-### Ablation
-
-| Variant | Mean MAE | Full gain vs variant |
-|---|---:|---:|
-| Full PhyGuard | 0.4497 | 0.00% |
-| w/o Failure-Mode Guard | 0.4523 | +0.58% |
-| w/o Physics Residual Bank | 0.6024 | +25.35% |
-| w/o Temporal Evidence Bank | 0.5300 | +15.17% |
-
-The physics residual bank is the strongest ablation evidence that physics is a
-core contribution rather than a decorative regularizer.
-
-### Complexity
-
-| Component | Parameters |
+| Evidence | Result |
 |---|---:|
-| Strong reconstruction core | 607,785 |
-| PhyGuard guard heads | 4,803 |
-| Total | 612,588 |
-| Extra overhead | 0.79% |
+| Average MAE reduction over all paired runs | 7.04% |
+| Random missing 50% reduction | 8.98% |
+| Incident perturbation reduction | 7.92% |
+| Sensor failure 30% reduction | 4.23% |
+| Additional trainable parameters | 5,954 |
+| Additional forward time per batch | < 1 ms |
+
+The main claim is not that PhyGuard replaces a strong backbone. PhyGuard is a
+lightweight reliability guard that decides when a local backbone output should
+be preserved, corrected, or corrected only within a bounded range.
+
+Aggregated paper evidence is in `results/phyguard_paper_evidence/`. The visual
+case used in the manuscript is in `results/phyguard_visual_case/`.
 
 ## Repository Structure
 
@@ -110,13 +80,16 @@ models/        lightweight baselines and wrappers
 physics/       traffic residual definitions and collocation utilities
 scripts/       training, evaluation, PhyGuard, baselines, and paper experiments
 tests/         smoke tests and unit tests
-results/       small local outputs and smoke-test artifacts
+results/       selected evidence summaries and smoke-test artifacts
 ```
 
-The primary PhyGuard entry point is:
+Primary paper reproduction scripts are:
 
 ```text
-scripts/run_maginet_physics_guard_quick.py
+reproduce/run_phyguard_plugin_strong_backbones.py
+reproduce/run_phyguard_plugin_ablation.py
+reproduce/build_phyguard_paper_evidence.py
+reproduce/create_phyguard_visual_case.py
 ```
 
 ## Installation
@@ -145,24 +118,25 @@ python reproduce/run_smoke.py
 Run one PhyGuard quick evaluation:
 
 ```bash
-python reproduce/run_protocol.py \
+python reproduce/run_phyguard_plugin_strong_backbones.py \
   --datasets PEMS08 \
   --scenarios random_missing_50 incident_perturbation \
   --seeds 1 \
-  --epochs 20 \
-  --guard-epochs 120 \
-  --output-root results/reproduce_quick
+  --backbones SAITS \
+  --epochs 5 \
+  --output-dir results/reproduce_quick
 ```
 
-Run the same quick protocol with ImputeFormer:
+Run the component ablation:
 
 ```bash
-python reproduce/run_protocol.py \
-  --datasets PEMS08 \
-  --scenarios random_missing_50 sensor_failure_30 incident_perturbation noise_random_missing \
+python reproduce/run_phyguard_plugin_ablation.py \
+  --dataset PEMS08 \
+  --scenarios random_missing_50 sensor_failure_30 incident_perturbation \
   --seeds 1 \
-  --include-imputeformer \
-  --output-root results/reproduce_quick
+  --backbone SAITS \
+  --epochs 5 \
+  --output-dir results/reproduce_ablation
 ```
 
 The direct PhyGuard entry point is still available:
@@ -179,18 +153,19 @@ python scripts/run_maginet_physics_guard_quick.py \
 
 ## Data
 
-The code supports:
+The paper experiments use:
 
 - `PEMS03`
 - `PEMS04`
 - `PEMS08`
 - `PEMS-BAY`
 - `METR-LA`
-- `PEMS08_debug`
+- `METR-LA`
 
-Traffic datasets are loaded from public sources when available. If a real
-dataset is unavailable, early-stage smoke tests use synthetic traffic-like data
-only for pipeline validation. Synthetic results must not be treated as paper
+`PEMS03`, `PEMS04`, and `PEMS08` are loaded from Zenodo record `7816008`.
+`PEMS-BAY` is loaded through the Hugging Face dataset `MintBruce/SkyTraffic`.
+`METR-LA` is loaded through the Hugging Face dataset `witgaw/METR-LA`.
+Synthetic traffic-like data are used only for smoke tests and are not paper
 evidence.
 
 See `DATASETS.md` and `THIRD_PARTY_NOTICES.md` before redistributing data or
@@ -201,9 +176,8 @@ third-party baseline code.
 The main paper protocol evaluates target-region masked MAE under:
 
 - `random_missing_50`
-- `noise_random_missing`
-- `incident_perturbation`
 - `sensor_failure_30`
+- `incident_perturbation`
 
 Additional robustness experiments use random missing rates 30%, 50%, and 70%.
 
@@ -211,11 +185,10 @@ Formal reproduction scripts are in `reproduce/`.
 
 ## Reproducibility Notes
 
-- Main paper tables were aggregated under `C:\tmp\litetrust_paper_tables`.
-- Paper planning artifacts were prepared under
-  `C:\tmp\phyguard_paper_rewriting_output`.
+- Main paper evidence is aggregated under `results/phyguard_paper_evidence/`.
+- The repository does not redistribute raw traffic datasets.
 - The current implementation is a research prototype. Exact paper runs should
-  be repeated after finalizing the target journal and code-release branch.
+  be repeated on the release branch before camera-ready submission.
 
 ## Citation
 
