@@ -1,31 +1,21 @@
 # PhyGuard Paper Evidence Tables
 
-This folder is derived from the finalized 5 datasets x 3 scenarios x 3 seeds paired experiment.
-Paper-facing tables use the original model names; implementation-strength labels remain internal run identifiers only.
-
-## Complexity
-
- dataset  nodes  feature_dim  hidden_dim  extra_trainable_params benchmark_device  extra_forward_ms_per_batch batch_shape
-  PEMS03    358           12          64                    5954             cuda                    0.846305 16x12x358x1
-  PEMS04    307           12          64                    5954             cuda                    0.601794 16x12x307x1
-  PEMS08    170           12          64                    5954             cuda                    0.334387 16x12x170x1
-PEMS-BAY    325           12          64                    5954             cuda                    0.641956 16x12x325x1
- METR-LA    207           12          64                    5954             cuda                    0.386161 16x12x207x1
+This folder is derived from the finalized paired experiments. Win-rate columns are intentionally omitted; paper-facing summaries report MAE, mean reduction, standard deviation, significance, and complexity.
 
 ## Generality
 
-    backbone  base_mae_mean  phyguard_mae_mean  gain_pct_mean  gain_pct_std  wins  runs  gate_mean  delta_abs_mean  win_rate_pct
-       BRITS       0.386274           0.356274       8.491951      3.955298    45    45   0.702097        0.107265    100.000000
-       SAITS       0.378871           0.353655       7.254002      4.136444    45    45   0.692380        0.095285    100.000000
-ImputeFormer       0.398566           0.370704       7.202371      3.354640    45    45   0.671381        0.090107    100.000000
-     MagiNet       0.361041           0.346078       5.219975      3.630740    43    45   0.610572        0.068595     95.555556
+    backbone  base_mae_mean  phyguard_mae_mean  gain_pct_mean  gain_pct_std  gate_mean  delta_abs_mean  failure_score_mean
+       BRITS       0.386274           0.356274       8.491951      3.955298   0.702097        0.107265             0.31175
+ImputeFormer       0.398566           0.370704       7.202371      3.354640   0.671381        0.090107             0.31175
+     MagiNet       0.361041           0.346078       5.219975      3.630740   0.610572        0.068595             0.31175
+       SAITS       0.378871           0.353655       7.254002      4.136444   0.692380        0.095285             0.31175
 
 ## Explainability by scenario
 
-             scenario  base_mae_mean  phyguard_mae_mean  gain_pct_mean  gain_pct_std  gate_mean  delta_abs_mean  failure_score_mean  wins  runs  win_rate_pct
-incident_perturbation       0.284450           0.261088       7.919462      3.268783   0.625325        0.075998            0.076351    60    60    100.000000
-    random_missing_50       0.265964           0.241651       8.976516      3.842290   0.630871        0.073027            0.076351    60    60    100.000000
-    sensor_failure_30       0.593150           0.567295       4.230247      2.960246   0.751127        0.121915            0.782550    58    60     96.666667
+             scenario  base_mae_mean  phyguard_mae_mean  gain_pct_mean  gain_pct_std  gate_mean  delta_abs_mean  failure_score_mean
+incident_perturbation       0.284450           0.261088       7.919462      3.268783   0.625325        0.075998            0.076351
+    random_missing_50       0.265964           0.241651       8.976516      3.842290   0.630871        0.073027            0.076351
+    sensor_failure_30       0.593150           0.567295       4.230247      2.960246   0.751127        0.121915            0.782550
 
 ## Best baseline vs best PhyGuard variant
 
@@ -45,3 +35,25 @@ PEMS-BAY     sensor_failure_30           SAITS            0.531497           0.0
   PEMS08 incident_perturbation         MagiNet            0.149354           0.004172      MagiNet + PhyGuard              0.146787             0.004996       1.718751
   PEMS08     random_missing_50         MagiNet            0.133286           0.001819      MagiNet + PhyGuard              0.129994             0.001669       2.469964
   PEMS08     sensor_failure_30           BRITS            0.425740           0.008261        BRITS + PhyGuard              0.414781             0.010029       2.574198
+
+## Complexity
+
+ dataset  nodes  feature_dim  hidden_dim  extra_trainable_params benchmark_device  extra_forward_ms_per_batch batch_shape
+  PEMS03    358           12          64                    5954             cuda                    0.846305 16x12x358x1
+  PEMS04    307           12          64                    5954             cuda                    0.601794 16x12x307x1
+  PEMS08    170           12          64                    5954             cuda                    0.334387 16x12x170x1
+PEMS-BAY    325           12          64                    5954             cuda                    0.641956 16x12x325x1
+ METR-LA    207           12          64                    5954             cuda                    0.386161 16x12x207x1
+
+## Significance
+
+                         group   n  mean_abs_improvement  mean_gain_pct  paired_t      p_value
+                       overall 180              0.024510       7.042075 20.186651 5.287264e-48
+scenario:incident_perturbation  60              0.023361       7.919462 13.719377 5.197308e-20
+    scenario:random_missing_50  60              0.024313       8.976516 13.209054 2.833789e-19
+    scenario:sensor_failure_30  60              0.025855       4.230247  9.719334 7.387907e-14
+                backbone:BRITS  45              0.029999       8.491951 14.931962 7.745137e-19
+         backbone:ImputeFormer  45              0.027861       7.202371  8.818121 2.785106e-11
+              backbone:MagiNet  45              0.014963       5.219975  9.262042 6.728534e-12
+                backbone:SAITS  45              0.025216       7.254002 12.107983 1.333645e-15
+

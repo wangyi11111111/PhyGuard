@@ -387,14 +387,14 @@ Table~\ref{tab:generality} summarizes the paired improvements across backbones. 
 \caption{Backbone generality of PhyGuard. MAE is averaged over datasets, scenarios, and seeds.}
 \label{tab:generality}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{lcccc}
+\begin{tabular}{lccc}
 \toprule
-Backbone & Backbone MAE & +PhyGuard MAE & Mean reduction & Win rate \\
+Backbone & Backbone MAE & +PhyGuard MAE & Reduction \\
 \midrule
-BRITS & 0.3863 & 0.3563 & 8.49\% & 100.00\% \\
-SAITS & 0.3789 & 0.3537 & 7.25\% & 100.00\% \\
-ImputeFormer & 0.3986 & 0.3707 & 7.20\% & 100.00\% \\
-MagiNet & 0.3610 & 0.3461 & 5.22\% & 95.56\% \\
+BRITS & 0.3863 & 0.3563 & 8.49$\pm$3.96\% \\
+SAITS & 0.3789 & 0.3537 & 7.25$\pm$4.14\% \\
+ImputeFormer & 0.3986 & 0.3707 & 7.20$\pm$3.35\% \\
+MagiNet & 0.3610 & 0.3461 & 5.22$\pm$3.63\% \\
 \bottomrule
 \end{tabular}
 }
@@ -409,20 +409,20 @@ We conduct ablation studies to examine the contribution of each component. Remov
 \label{tab:ablation}
 \begin{tabular}{lccc}
 \toprule
-Variant & MAE & Mean reduction & Win rate \\
+Variant & MAE & Reduction & $|\Delta|$ mean \\
 \midrule
-Full PhyGuard & \textbf{0.3638} & 6.98\% & 100.00\% \\
-Full without failure-aware harm & 0.3819 & 2.10\% & 100.00\% \\
-No failure score & 0.3820 & 2.09\% & 100.00\% \\
-No gate & 0.3820 & 2.10\% & 100.00\% \\
-No physics residual & 0.3829 & 1.88\% & 94.44\% \\
-No temporal features & 0.3864 & 1.00\% & 77.78\% \\
+Full PhyGuard & \textbf{0.3638} & 6.98$\pm$4.67\% & 0.0929 \\
+Full without failure-aware harm & 0.3819 & 2.10$\pm$1.78\% & 0.0335 \\
+No failure score & 0.3820 & 2.09$\pm$1.74\% & 0.0332 \\
+No gate & 0.3820 & 2.10$\pm$1.67\% & 0.0288 \\
+No physics residual & 0.3829 & 1.88$\pm$1.71\% & 0.0345 \\
+No temporal features & 0.3864 & 1.00$\pm$1.62\% & 0.0283 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Parameter Sensitivity}
-We further examine the sensitivity of PhyGuard to the harm penalty, since this term controls how conservative the guard should be when a correction may damage a reliable backbone output. Table~\ref{tab:param_sensitivity} reports a small validation sweep on PEMS08 and PEMS-BAY with three scenarios and three seeds. Removing the harm penalty gives the lowest average MAE, but it does not improve every paired run. A small fixed weight of 0.05 gives nearly the same MAE with a 100\% win rate, while larger weights make the correction increasingly conservative and reduce the average gain. This trend supports the design choice of using a small and reliability-aware harm penalty: it suppresses harmful corrections in high-risk regions without eliminating useful corrections in recoverable missing regions.
+We further examine the sensitivity of PhyGuard to the harm penalty, since this term controls how conservative the guard should be when a correction may damage a reliable backbone output. Table~\ref{tab:param_sensitivity} reports a small validation sweep on PEMS08 and PEMS-BAY with three scenarios and three seeds. Removing the harm penalty gives the lowest average MAE, while a small fixed weight of 0.05 gives nearly the same MAE with a similar correction magnitude. Larger weights make the correction increasingly conservative and reduce the average gain. This trend supports the design choice of using a small and reliability-aware harm penalty: it suppresses harmful corrections in high-risk regions without eliminating useful corrections in recoverable missing regions.
 
 \begin{table}[t]
 \centering
@@ -462,13 +462,13 @@ Table~\ref{tab:missing_rate} reports robustness under random missing rates of 30
 \caption{Robustness to different random missing rates.}
 \label{tab:missing_rate}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{ccccc}
+\begin{tabular}{cccc}
 \toprule
-Missing rate & Backbone MAE & +PhyGuard MAE & Mean reduction & Win rate \\
+Missing rate & Backbone MAE & +PhyGuard MAE & Reduction \\
 \midrule
-30\% & 0.2911 & 0.2639 & 8.74\% & 100.00\% \\
-50\% & 0.3158 & 0.2912 & 7.22\% & 100.00\% \\
-70\% & 0.3407 & 0.3208 & 5.90\% & 100.00\% \\
+30\% & 0.2911 & 0.2639 & 8.74$\pm$4.94\% \\
+50\% & 0.3158 & 0.2912 & 7.22$\pm$4.15\% \\
+70\% & 0.3407 & 0.3208 & 5.90$\pm$1.95\% \\
 \bottomrule
 \end{tabular}
 }

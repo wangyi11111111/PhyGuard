@@ -150,14 +150,11 @@ def _write_tables(all_rows: pd.DataFrame, pairs: pd.DataFrame, out: Path) -> dic
             phyguard_mae_mean=("phyguard_mae", "mean"),
             gain_pct_mean=("gain_pct", "mean"),
             gain_pct_std=("gain_pct", "std"),
-            wins=("gain_pct", lambda x: int((x > 0).sum())),
-            runs=("gain_pct", "size"),
             gate_mean=("gate_mean", "mean"),
             delta_abs_mean=("delta_abs_mean", "mean"),
         )
         .sort_values("gain_pct_mean", ascending=False)
     )
-    generality["win_rate_pct"] = generality["wins"] / generality["runs"] * 100.0
     generality.to_csv(out / "generality_table.csv", index=False)
 
     scenario = (
@@ -170,12 +167,9 @@ def _write_tables(all_rows: pd.DataFrame, pairs: pd.DataFrame, out: Path) -> dic
             gate_mean=("gate_mean", "mean"),
             delta_abs_mean=("delta_abs_mean", "mean"),
             failure_score_mean=("failure_score_mean", "mean"),
-            wins=("gain_pct", lambda x: int((x > 0).sum())),
-            runs=("gain_pct", "size"),
         )
         .sort_values("scenario")
     )
-    scenario["win_rate_pct"] = scenario["wins"] / scenario["runs"] * 100.0
     scenario.to_csv(out / "explainability_by_scenario.csv", index=False)
 
     backbone_scenario = (
@@ -186,12 +180,9 @@ def _write_tables(all_rows: pd.DataFrame, pairs: pd.DataFrame, out: Path) -> dic
             gate_mean=("gate_mean", "mean"),
             delta_abs_mean=("delta_abs_mean", "mean"),
             failure_score_mean=("failure_score_mean", "mean"),
-            wins=("gain_pct", lambda x: int((x > 0).sum())),
-            runs=("gain_pct", "size"),
         )
         .sort_values(["backbone", "scenario"])
     )
-    backbone_scenario["win_rate_pct"] = backbone_scenario["wins"] / backbone_scenario["runs"] * 100.0
     backbone_scenario.to_csv(out / "explainability_by_backbone_scenario.csv", index=False)
 
     mean_model = all_rows.groupby(["dataset", "scenario", "model"], as_index=False).agg(

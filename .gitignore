@@ -30,6 +30,9 @@ results/imputeformer_*/
 results/local_utility_guard*/
 results/leakage_check_*/
 results/phyguard_plugin_*/
+results/plugin_baseline_smoke/
+results/plugin_baseline_comparison_seed1/
+results/plugin_baseline_comparison_seed1_metrla_incident/
 results/phyguard_v12_*/
 results/strong_external_*/
 results/strict_fixed_smoke/

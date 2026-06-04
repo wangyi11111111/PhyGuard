@@ -67,7 +67,7 @@ local reliability guard.
 
 | Evidence | Result |
 |---|---:|
-| Average MAE reduction over all paired runs | 7.04% |
+| Average MAE reduction over all paired evaluations | 7.04% |
 | Random missing 50% reduction | 8.98% |
 | Incident perturbation reduction | 7.92% |
 | Sensor failure 30% reduction | 4.23% |
@@ -199,7 +199,7 @@ Formal reproduction scripts are in `reproduce/`.
 
 - Main paper evidence is aggregated under `results/phyguard_paper_evidence/`.
 - The repository does not redistribute raw traffic datasets.
-- The current implementation is a research prototype. Exact paper runs should
+- The current implementation is a research prototype. Exact paper evaluations should
   be repeated on the release branch before camera-ready submission.
 
 ## Citation
