@@ -24,7 +24,7 @@ from reproduce.run_phyguard_plugin_strong_backbones import (
     _run_pypots_all_splits,
     _train_plugin,
 )
-from reproduce.run_strong_external_baselines import _make_saits_strong
+from reproduce.run_strong_external_baselines import _make_brits_strong, _make_imputeformer_strong, _make_saits_strong
 from scripts.run_five_baselines_flow_quick import _scenario_data
 from scripts.run_maginet_physics_guard_quick import (
     _apply_observed,
@@ -40,6 +40,9 @@ PLUGIN_FEATURES = {
     # Pure data-driven residual adapter. It does not use physics residuals or
     # explicit failure-mode evidence.
     "GenericAdapter": [0, 1, 5, 6, 7, 8, 9, 10],
+    # Same inputs as GenericAdapter but with a wider correction network to
+    # roughly match the parameter budget of the full physics-promotion module.
+    "GenericAdapterMatched": [0, 1, 5, 6, 7, 8, 9, 10],
     # A calibrated adapter with a learned gate. It uses ordinary temporal and
     # mask evidence, but no physics residual and no explicit failure score.
     "CalibrationGuard": [0, 1, 5, 6, 7, 8, 9, 10],
@@ -49,9 +52,15 @@ PLUGIN_FEATURES = {
 }
 
 
+GENERIC_FEATURES = PLUGIN_FEATURES["GenericAdapter"]
+RELIABILITY_FEATURES = list(range(12))
+
+
 DISPLAY_BACKBONE = {
     "SAITSStrong": "SAITS",
     "MagiNetStrong": "MagiNet",
+    "BRITSStrong": "BRITS",
+    "ImputeFormerStrong": "ImputeFormer",
 }
 
 
@@ -78,6 +87,76 @@ class ResidualPlugin(nn.Module):
         delta = torch.tanh(self.delta(features)) * self.correction_clip
         gate = torch.sigmoid(self.gate(features)) if self.use_gate else torch.ones_like(delta)
         return base + gate * delta, gate, delta
+
+
+class ReliabilityConditionedPlugin(nn.Module):
+    """Strong generic correction controlled by local physics/failure reliability."""
+
+    def __init__(
+        self,
+        generic_dim: int,
+        reliability_dim: int,
+        *,
+        hidden_dim: int = 99,
+        correction_clip: float = 0.20,
+        gate_floor: float = 0.95,
+        conflict_coef: float = 0.75,
+    ):
+        super().__init__()
+        self.correction_clip = float(correction_clip)
+        self.gate_floor = float(gate_floor)
+        self.conflict_coef = float(conflict_coef)
+        self.delta = nn.Sequential(
+            nn.Linear(generic_dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(0.05),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1),
+        )
+        self.gate = nn.Sequential(
+            nn.Linear(reliability_dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(0.05),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.GELU(),
+            nn.Linear(hidden_dim // 2, 1),
+        )
+        self.promotion = nn.Sequential(
+            nn.Linear(reliability_dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(0.05),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.GELU(),
+            nn.Linear(hidden_dim // 2, 1),
+        )
+
+    def forward(
+        self,
+        generic_features: torch.Tensor,
+        reliability_features: torch.Tensor,
+        aligned_delta: torch.Tensor,
+        base: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        delta = torch.tanh(self.delta(generic_features)) * self.correction_clip
+        raw_gate = torch.sigmoid(self.gate(reliability_features))
+        gate = self.gate_floor + (1.0 - self.gate_floor) * raw_gate
+        beta_raw = torch.sigmoid(self.promotion(reliability_features))
+        # Feature layout follows _features(): failure=2, residual rank=3,
+        # observed-error proxy=10, spatial gap rank=11. High local conflict
+        # means physics-aligned promotion is more likely to amplify an abnormal
+        # incident pattern, so the promotion branch is explicitly damped.
+        conflict = torch.clamp(
+            0.35 * reliability_features[..., 2:3]
+            + 0.35 * reliability_features[..., 3:4]
+            + 0.20 * reliability_features[..., 10:11]
+            + 0.10 * reliability_features[..., 11:12],
+            0.0,
+            1.0,
+        )
+        beta = beta_raw * (1.0 - self.conflict_coef * conflict)
+        promoted = beta * torch.tanh(aligned_delta) * self.correction_clip
+        return base + gate * delta + promoted, gate, delta, beta
 
 
 def _masked_mae_np(pred: np.ndarray, target: np.ndarray, region: np.ndarray) -> float:
@@ -123,20 +202,29 @@ def _train_baseline_plugin(
         use_gate = False
         harm_weight = 0.0
         gate_weight = 0.0
+        hidden_dim = 64
+    elif plugin == "GenericAdapterMatched":
+        weight = torch.ones_like(failure)
+        use_gate = False
+        harm_weight = 0.0
+        gate_weight = 0.0
+        hidden_dim = 99
     elif plugin == "CalibrationGuard":
         weight = torch.ones_like(failure)
         use_gate = True
         harm_weight = 0.05
         gate_weight = 0.15
+        hidden_dim = 64
     elif plugin == "FailureAnomalyGuard":
         weight = 1.0 + 1.25 * failure + 0.25 * residual_rank
         use_gate = True
         harm_weight = 0.05 + 0.15 * failure
         gate_weight = 0.15
+        hidden_dim = 64
     else:
         raise ValueError(f"unknown plugin: {plugin}")
 
-    model = ResidualPlugin(x.shape[-1], correction_clip=correction_clip, use_gate=use_gate)
+    model = ResidualPlugin(x.shape[-1], hidden_dim=hidden_dim, correction_clip=correction_clip, use_gate=use_gate)
     opt = torch.optim.AdamW(model.parameters(), lr=8e-4, weight_decay=2e-4)
     generator = torch.Generator().manual_seed(seed + 9302)
     batch_size = 32768
@@ -202,6 +290,139 @@ def _train_baseline_plugin(
     }
 
 
+def _train_reliability_conditioned_plugin(
+    train,
+    val,
+    test,
+    adj: np.ndarray,
+    base_train: np.ndarray,
+    base_val: np.ndarray,
+    base_test: np.ndarray,
+    *,
+    epochs: int,
+    seed: int,
+    correction_clip: float,
+    gate_floor: float,
+    conflict_coef: float,
+) -> tuple[np.ndarray, dict[str, float]]:
+    torch.manual_seed(seed + 10401)
+    train_full, train_obs, train_mask = train
+    val_full, val_obs, val_mask = val
+    test_full, test_obs, test_mask = test
+
+    feat_train_full = _features(base_train, train_obs, train_mask, adj)
+    feat_val_full = _features(base_val, val_obs, val_mask, adj)
+    feat_test_full = _features(base_test, test_obs, test_mask, adj)
+    feat_train_g = feat_train_full[..., GENERIC_FEATURES].astype(np.float32)
+    feat_val_g = feat_val_full[..., GENERIC_FEATURES].astype(np.float32)
+    feat_test_g = feat_test_full[..., GENERIC_FEATURES].astype(np.float32)
+    feat_train_r = feat_train_full[..., RELIABILITY_FEATURES].astype(np.float32)
+    feat_val_r = feat_val_full[..., RELIABILITY_FEATURES].astype(np.float32)
+    feat_test_r = feat_test_full[..., RELIABILITY_FEATURES].astype(np.float32)
+    # Physics-aligned promotion candidate: use graph-neighborhood and temporal
+    # consistency directions already present in the feature bank. Promotion is
+    # learned and bounded; this candidate only supplies a local direction.
+    aligned_train = (0.6 * feat_train_full[..., 8:9] + 0.4 * feat_train_full[..., 9:10]).astype(np.float32)
+    aligned_val = (0.6 * feat_val_full[..., 8:9] + 0.4 * feat_val_full[..., 9:10]).astype(np.float32)
+    aligned_test = (0.6 * feat_test_full[..., 8:9] + 0.4 * feat_test_full[..., 9:10]).astype(np.float32)
+
+    target_region = (1.0 - train_mask)[..., 0] > 0.0
+    xg = torch.tensor(feat_train_g[target_region], dtype=torch.float32)
+    xr = torch.tensor(feat_train_r[target_region], dtype=torch.float32)
+    xa = torch.tensor(aligned_train[target_region], dtype=torch.float32)
+    base = torch.tensor(base_train[target_region], dtype=torch.float32)
+    y = torch.tensor(train_full[target_region], dtype=torch.float32)
+    failure = torch.tensor(_failure_mode_score(train_mask, adj)[..., 0][target_region], dtype=torch.float32).unsqueeze(-1)
+    residual_rank = torch.tensor(_rank_np(np.abs(_graph_residual_np(base_train, adj)))[..., 0][target_region], dtype=torch.float32).unsqueeze(-1)
+    reliability_weight = 1.0 + 0.75 * failure + 0.50 * residual_rank
+
+    model = ReliabilityConditionedPlugin(
+        xg.shape[-1],
+        xr.shape[-1],
+        correction_clip=correction_clip,
+        gate_floor=gate_floor,
+        conflict_coef=conflict_coef,
+    )
+    opt = torch.optim.AdamW(model.parameters(), lr=8e-4, weight_decay=2e-4)
+    generator = torch.Generator().manual_seed(seed + 10402)
+    batch_size = 32768
+    best_state = None
+    best_val = float("inf")
+    val_g_t = torch.tensor(feat_val_g, dtype=torch.float32)
+    val_r_t = torch.tensor(feat_val_r, dtype=torch.float32)
+    val_a_t = torch.tensor(aligned_val, dtype=torch.float32)
+    val_base_t = torch.tensor(base_val, dtype=torch.float32)
+    val_target_t = torch.tensor(val_full, dtype=torch.float32)
+    val_region_t = torch.tensor(1.0 - val_mask, dtype=torch.float32)
+
+    for _epoch in range(max(1, epochs)):
+        order = torch.randperm(xg.shape[0], generator=generator)
+        model.train()
+        for start in range(0, xg.shape[0], batch_size):
+            idx = order[start : start + batch_size]
+            pred, gate, delta, beta = model(xg[idx], xr[idx], xa[idx], base[idx])
+            generic_pred = base[idx] + delta
+            promoted_probe = generic_pred + torch.tanh(xa[idx]) * correction_clip
+            base_err = torch.abs(base[idx] - y[idx])
+            generic_err = torch.abs(generic_pred.detach() - y[idx])
+            promoted_err = torch.abs(promoted_probe.detach() - y[idx])
+            pred_err = torch.abs(pred - y[idx])
+            utility_target = (generic_err + 1e-6 < base_err.detach()).float()
+            promo_target = (promoted_err + 1e-6 < generic_err).float()
+            rec_loss = torch.mean(pred_err)
+            gate_loss = torch.mean(
+                F.binary_cross_entropy(gate.clamp(1e-4, 1.0 - 1e-4), utility_target, reduction="none") * reliability_weight[idx]
+            )
+            harm = torch.relu(pred_err - torch.minimum(base_err.detach(), generic_err.detach()))
+            # Be conservative mainly when local failure or physics conflict is high.
+            harm_loss = torch.mean(harm * (0.01 + 0.05 * failure[idx] + 0.02 * residual_rank[idx]))
+            delta_shrink = torch.mean(torch.abs(delta) * (1.0 - utility_target) * (0.01 + 0.02 * reliability_weight[idx]))
+            promo_loss = torch.mean(
+                F.binary_cross_entropy(beta.clamp(1e-4, 1.0 - 1e-4), promo_target, reduction="none") * reliability_weight[idx]
+            )
+            promo_harm = torch.mean(torch.relu(pred_err - generic_err.detach()) * beta * (0.02 + 0.05 * residual_rank[idx]))
+            loss = rec_loss + 0.05 * gate_loss + 0.05 * promo_loss + harm_loss + promo_harm + delta_shrink
+            opt.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+            opt.step()
+
+        model.eval()
+        with torch.no_grad():
+            pred_val, _gate_val, _delta_val, _beta_val = model(val_g_t, val_r_t, val_a_t, val_base_t)
+            val_mae = float((torch.abs(pred_val - val_target_t) * val_region_t).sum() / val_region_t.sum().clamp_min(1.0))
+        if val_mae < best_val:
+            best_val = val_mae
+            best_state = deepcopy(model.state_dict())
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    model.eval()
+    with torch.no_grad():
+        pred_test, gate_test, delta_test, beta_test = model(
+            torch.tensor(feat_test_g, dtype=torch.float32),
+            torch.tensor(feat_test_r, dtype=torch.float32),
+            torch.tensor(aligned_test, dtype=torch.float32),
+            torch.tensor(base_test, dtype=torch.float32),
+        )
+    pred_np = pred_test.numpy().astype(np.float32)
+    test_region = 1.0 - test_mask
+    base_mae = _masked_mae_np(base_test, test_full, test_region)
+    plugin_mae = _masked_mae_np(pred_np, test_full, test_region)
+    return pred_np, {
+        "plugin_val_mae": best_val,
+        "base_test_mae": base_mae,
+        "plugin_gain_pct": (base_mae - plugin_mae) / max(base_mae, 1e-8) * 100.0,
+        "gate_mean": float((gate_test.numpy() * test_region).sum() / np.clip(test_region.sum(), 1.0, None)),
+        "promotion_mean": float((beta_test.numpy() * test_region).sum() / np.clip(test_region.sum(), 1.0, None)),
+        "delta_abs_mean": float((np.abs(delta_test.numpy()) * test_region).sum() / np.clip(test_region.sum(), 1.0, None)),
+        "aligned_delta_abs_mean": float((np.abs(aligned_test) * test_region).sum() / np.clip(test_region.sum(), 1.0, None)),
+        "failure_score_mean": float((_failure_mode_score(test_mask, adj) * test_region).sum() / np.clip(test_region.sum(), 1.0, None)),
+        "phypro_gate_floor": float(gate_floor),
+        "phypro_conflict_coef": float(conflict_coef),
+    }
+
+
 def _write_outputs(output_dir: Path, rows: list[dict], protocol: dict) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     fieldnames = sorted({key for row in rows for key in row.keys()})
@@ -212,16 +433,21 @@ def _write_outputs(output_dir: Path, rows: list[dict], protocol: dict) -> None:
 
     df = pd.DataFrame(rows)
     if not df.empty:
+        agg_kwargs = {
+            "masked_mae_mean": ("masked_mae", "mean"),
+            "masked_mae_std": ("masked_mae", "std"),
+            "gain_pct_mean": ("plugin_gain_pct", "mean"),
+            "gain_pct_std": ("plugin_gain_pct", "std"),
+            "gate_mean": ("gate_mean", "mean"),
+            "delta_abs_mean": ("delta_abs_mean", "mean"),
+        }
+        if "promotion_mean" in df.columns:
+            agg_kwargs["promotion_mean"] = ("promotion_mean", "mean")
+        if "aligned_delta_abs_mean" in df.columns:
+            agg_kwargs["aligned_delta_abs_mean"] = ("aligned_delta_abs_mean", "mean")
         grouped = (
             df.groupby(["backbone", "plugin"], as_index=False)
-            .agg(
-                masked_mae_mean=("masked_mae", "mean"),
-                masked_mae_std=("masked_mae", "std"),
-                gain_pct_mean=("plugin_gain_pct", "mean"),
-                gain_pct_std=("plugin_gain_pct", "std"),
-                gate_mean=("gate_mean", "mean"),
-                delta_abs_mean=("delta_abs_mean", "mean"),
-            )
+            .agg(**agg_kwargs)
             .sort_values(["backbone", "masked_mae_mean"])
         )
         grouped.to_csv(output_dir / "plugin_comparison.csv", index=False)
@@ -247,6 +473,9 @@ def main() -> int:
     parser.add_argument("--plugin-epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--correction-clip", type=float, default=0.20)
+    parser.add_argument("--phypro-gate-floor", type=float, default=0.95)
+    parser.add_argument("--phypro-conflict-coef", type=float, default=0.75)
+    parser.add_argument("--include-matched-generic", action="store_true", help="Include the wider generic adapter as a diagnostic baseline.")
     parser.add_argument("--train-samples", type=int, default=64)
     parser.add_argument("--val-samples", type=int, default=16)
     parser.add_argument("--test-samples", type=int, default=16)
@@ -289,6 +518,28 @@ def main() -> int:
                             args.epochs,
                             args.batch_size,
                         )
+                    elif backbone == "BRITSStrong":
+                        pred_train, pred_val, pred_test = _run_pypots_all_splits(
+                            _make_brits_strong,
+                            backbone,
+                            train,
+                            val,
+                            test,
+                            device,
+                            args.epochs,
+                            args.batch_size,
+                        )
+                    elif backbone == "ImputeFormerStrong":
+                        pred_train, pred_val, pred_test = _run_pypots_all_splits(
+                            _make_imputeformer_strong,
+                            backbone,
+                            train,
+                            val,
+                            test,
+                            device,
+                            args.epochs,
+                            args.batch_size,
+                        )
                     else:
                         raise ValueError(f"unsupported backbone for this trend test: {backbone}")
 
@@ -315,7 +566,10 @@ def main() -> int:
                         }
                     )
 
-                    for plugin in ["GenericAdapter", "CalibrationGuard", "FailureAnomalyGuard"]:
+                    plugin_baselines = ["GenericAdapter", "CalibrationGuard", "FailureAnomalyGuard"]
+                    if args.include_matched_generic:
+                        plugin_baselines.insert(1, "GenericAdapterMatched")
+                    for plugin in plugin_baselines:
                         plugin_pred, stats = _train_baseline_plugin(
                             plugin,
                             train,
@@ -366,6 +620,34 @@ def main() -> int:
                             "model": f"{base_name}+PhyGuard",
                             **compute_metrics(phyguard_pred, test_x, 1.0 - test_mask),
                             **phyguard_stats,
+                        }
+                    )
+                    rc_pred, rc_stats = _train_reliability_conditioned_plugin(
+                        train,
+                        val,
+                        test,
+                        adj,
+                        base_train,
+                        base_val,
+                        base_test,
+                        epochs=args.plugin_epochs,
+                        seed=seed,
+                        correction_clip=args.correction_clip,
+                        gate_floor=args.phypro_gate_floor,
+                        conflict_coef=args.phypro_conflict_coef,
+                    )
+                    rows.append(
+                        {
+                            "dataset": dataset,
+                            "seed": seed,
+                            "scenario": scenario,
+                            "backbone": base_name,
+                            "plugin": "PhyGuardRC",
+                            "model": f"{base_name}+PhyGuardRC",
+                            "phypro_gate_floor": args.phypro_gate_floor,
+                            "phypro_conflict_coef": args.phypro_conflict_coef,
+                            **compute_metrics(rc_pred, test_x, 1.0 - test_mask),
+                            **rc_stats,
                         }
                     )
                     _write_outputs(output_dir, rows, {**vars(args), "metadata": metadata})

@@ -1,90 +1,106 @@
 # Reproduction Scripts
 
-This folder contains lightweight scripts for reproducing the PhyGuard paper
-protocol. The scripts are intentionally conservative: they run one dataset or a
-small subset by default and require explicit arguments for larger protocols.
+This folder contains the scripts used for the final PhyPro experiments.
 
-## Smoke Test
+## Final Method
 
-```bash
-python reproduce/run_smoke.py
+The main implementation is in:
+
+```text
+run_plugin_baseline_comparison.py
 ```
 
-## Quick Single-Seed Protocol
+The paper-facing method is `PhyPro`. Internally, the final module class is
+`ReliabilityConditionedPlugin`; old labels such as `PhyGuardRC` are development
+artifacts and should not be used in final paper tables.
+
+## Main Plug-in Comparison
+
+Run a small version:
 
 ```bash
-python reproduce/run_protocol.py \
+python reproduce/run_plugin_baseline_comparison.py \
   --datasets PEMS08 \
-  --scenarios random_missing_50 incident_perturbation \
+  --scenarios random_missing_50 \
   --seeds 1 \
+  --backbones SAITSStrong MagiNetStrong \
   --epochs 20 \
-  --guard-epochs 120 \
-  --output-root results/reproduce_quick
+  --plugin-epochs 20 \
+  --train-samples 64 \
+  --val-samples 16 \
+  --test-samples 16 \
+  --phypro-gate-floor 0.95 \
+  --phypro-conflict-coef 0.75 \
+  --output-dir results/phypro_smoke
 ```
 
-Add `--include-imputeformer` to run the PyPOTS ImputeFormer baseline with the
-same dataset/scenario/seed list.
+The full paper protocol used:
 
-## Anti-Leakage Validation Protocol
-
-Use this protocol before making paper claims. For raw PEMS series, it splits
-the continuous time series first, inserts a gap between train/validation/test,
-and only then creates windows. The default `--stride 12 --gap 12` avoids the
-heavy adjacent-window overlap used by quick debug runs.
-
-```bash
-python reproduce/run_antileakage_protocol.py \
-  --datasets PEMS08 METR-LA \
-  --scenarios random_missing_50 incident_perturbation sensor_failure_30 \
-  --seeds 1 \
-  --epochs 5 \
-  --guard-epochs 20 \
-  --output-dir results/antileakage_validation
+```text
+5 datasets x 3 scenarios x 3 seeds x 4 backbones
 ```
 
-For METR-LA, the script uses the Hugging Face predefined train/validation/test
-files and subsamples timestamps by `--stride`; the original raw continuous
-series is not reconstructed from those windowed parquet files. Treat PEMS
-strict results as the cleaner anti-leakage check.
+with backbones:
 
-## Full Paper Protocol
-
-Run the full protocol only when datasets and baseline dependencies are ready:
-
-```bash
-python reproduce/run_phyguard_plugin_strong_backbones.py \
-  --datasets PEMS03 PEMS04 PEMS08 PEMS-BAY METR-LA \
-  --scenarios random_missing_50 sensor_failure_30 incident_perturbation \
-  --seeds 1 2 3 \
-  --backbones BRITS SAITS ImputeFormer MagiNet \
-  --output-dir results/reproduce_full
+```text
+BRITS, SAITS, ImputeFormer, MagiNet
 ```
 
-Build paper evidence tables from completed runs:
+## Ablation
+
+Selected ablations for the manuscript are produced by:
 
 ```bash
-python reproduce/build_phyguard_paper_evidence.py \
-  --input-dir results/reproduce_full \
-  --output-dir results/phyguard_paper_evidence
+python reproduce/run_phypro_ablation.py
 ```
 
-Create the qualitative case figure:
+The main-text ablation should keep only interpretable variants:
+
+```text
+Backbone
+Generic correction only
+Full PhyPro
+w/o physics promotion
+w/o residual/evidence bank
+w/o conflict suppression
+w/o failure evidence
+```
+
+## Visual Case
+
+Generate the final PhyPro interpretability figure:
 
 ```bash
-python reproduce/create_phyguard_visual_case.py \
+python reproduce/create_phypro_visual_case.py \
   --dataset PEMS-BAY \
   --scenario random_missing_50 \
   --seed 1 \
-  --output-dir results/phyguard_visual_case
+  --epochs 50 \
+  --plugin-epochs 40 \
+  --train-samples 64 \
+  --val-samples 16 \
+  --test-samples 16 \
+  --phypro-gate-floor 0.95 \
+  --phypro-conflict-coef 0.75 \
+  --output-dir results/phypro_visual_case
 ```
 
-## Aggregate Results
+Outputs:
 
-```bash
-python reproduce/aggregate_results.py \
-  --input-root results/reproduce_full \
-  --output-dir results/reproduce_full_tables
+```text
+results/phypro_visual_case/figure_phypro_case.png
+results/phypro_visual_case/figure_phypro_case.pdf
+results/phypro_visual_case/case_arrays.npz
 ```
 
-The aggregator writes `all_rows.csv`, `per_seed_pivot.csv`,
-`main_by_scenario.csv`, `main_by_dataset.csv`, and `main_overall.csv`.
+## Paper Evidence Files
+
+Small CSV summaries used in the manuscript are under:
+
+```text
+results/phypro_paper_evidence/
+results/phypro_missing_rate_robustness_quick/
+```
+
+Large raw experiment outputs are not required for the anonymous paper archive
+unless the reviewer requests full logs.

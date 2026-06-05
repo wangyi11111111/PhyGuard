@@ -1,4 +1,3 @@
-
 \documentclass[preprint,12pt]{elsarticle}
 
 \usepackage{amsmath,amssymb}
@@ -8,8 +7,8 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{hyperref}
-\renewcommand{\theHfigure}{phyguardfig.\arabic{figure}}
-\providecommand{\theHalgorithm}{phyguardalg.\arabic{algorithm}}
+\renewcommand{\theHfigure}{phyprofig.\arabic{figure}}
+\providecommand{\theHalgorithm}{phyproalg.\arabic{algorithm}}
 
 \journal{Target Elsevier journal pending}
 
@@ -17,347 +16,259 @@
 
 \begin{frontmatter}
 
-\title{PhyGuard: A Physics-Reliability-Aware Guard Framework for Sparse and Disrupted Traffic State Reconstruction}
+\title{PhyPro: Learning When Physics Should Promote Correction for Robust Traffic State Reconstruction}
 
 \author[inst1]{Author Name}
 \affiliation[inst1]{organization={Institution}, city={City}, country={Country}}
 
 \begin{abstract}
-\noindent Traffic state reconstruction in open transportation systems is challenged by sparse observations, sensor failures, and local disruptions. Existing imputation backbones capture spatiotemporal dependencies, but their outputs may still be locally unreliable under abnormal traffic states. Meanwhile, fixed or globally weighted physical constraints assume that simplified physics is reliable everywhere, which can fail under incidents, non-periodic congestion, and sensor anomalies. This paper proposes PhyGuard, a lightweight physics-reliability-aware guard attached to a reconstruction backbone. For each sensor and time step, PhyGuard constructs local reliability features from the observation mask, temporal gap, failure score, graph-neighborhood deviation, temporal variation, and physics residuals, then predicts a correction gate and bounded residual correction. Instead of enforcing physics globally, PhyGuard uses physics residuals as local diagnostic evidence and applies failure-aware harm regularization to avoid damaging reliable backbone outputs. Experiments on five datasets, three disruption scenarios, and four strong backbones reduce MAE by 7.04\% on average, with reductions of 8.98\% under random missing and 7.92\% under incident perturbation. Ablations verify the contributions of physics residuals, temporal evidence, and failure-aware guarding.
+\noindent Sparse and disrupted traffic sensing requires models to reconstruct missing states while avoiding harmful local corrections. Strong imputation backbones can exploit temporal and graph dependencies, yet they remain largely data-driven and provide limited evidence about whether a local correction is reliable. Physics-informed methods offer complementary domain knowledge, but fixed or globally weighted physical losses assume that simplified traffic-flow relations are reliable everywhere. This assumption can fail under sensor failures, incident perturbations, non-recurrent congestion, and noisy observations, where enforcing physics may amplify local errors. We propose PhyPro, a lightweight physics-reliability promoted correction framework for robust traffic state reconstruction. Given a backbone reconstruction, PhyPro learns a bounded generic correction and a physics-aligned correction direction, then uses local reliability evidence from masks, temporal gaps, graph-neighborhood deviations, physical residuals, failure scores, and conflict cues to decide when physics should promote or suppress the correction. Thus, physics is not used as a global hard constraint or a direct predictor; it acts as local evidence for reliability-conditioned promotion. Experiments on five public traffic datasets, three disruption protocols, three random seeds, and four reconstruction backbones show that PhyPro reduces masked MAE by 10.58\% over the corresponding backbones and remains significantly better than generic, calibration, and failure-aware plug-in adapters. PhyPro adds only 23,365 trainable parameters and millisecond-level forward overhead, while providing interpretable promotion and conflict maps.
 \end{abstract}
 
 \begin{keyword}
 traffic state reconstruction \sep physics reliability \sep spatiotemporal imputation \sep robust learning
 \end{keyword}
 
+\noindent\textbf{Anonymous code:} \url{https://anonymous.4open.science/r/PhyGuard-F1CE}
+
 \end{frontmatter}
 
 \section{Introduction}
-Reliable traffic state reconstruction is a basic requirement for intelligent transportation systems, because monitoring, prediction, control, and incident response all depend on continuous and credible traffic states. In practice, however, traffic observations are rarely complete. Loop detectors and other sensing devices may suffer from random missingness, long-term sensor failure, communication interruptions, and local abnormal traffic patterns. These missing and corrupted observations make reconstruction more than a standard denoising task: the model must infer unobserved states from incomplete spatial, temporal, and physical evidence. Classical traffic imputation studies have therefore explored structured temporal and low-rank assumptions to recover missing spatiotemporal measurements \citep{chen2020nonconvex,chen2021scalable,chen2022latc}. These methods show that traffic data contain exploitable regularities, but they also indicate that reconstruction quality depends strongly on whether the chosen prior remains valid under the observed missing pattern.
+Reliable traffic state reconstruction is a prerequisite for monitoring, prediction, traffic control, and incident response. In practice, however, road-network observations are sparse and locally unreliable. Sensors may randomly miss measurements, communication links may fail, detectors may remain unavailable for long intervals, and traffic states may deviate from recurrent patterns under incidents or abnormal congestion. These conditions make reconstruction more than a conventional interpolation problem: the model must infer unobserved values while deciding whether a local reconstruction is reliable enough to be modified.
 
-Deep learning has substantially improved the expressive power of traffic modeling. Graph-based and attention-based models can capture road-network dependencies, nonlinear temporal dynamics, and adaptive spatial correlations, as demonstrated in traffic forecasting and spatiotemporal modeling studies \citep{li2018dcrnn,yu2018stgcn,wu2019graphwavenet,zheng2020gman}. These architectures motivate the use of strong reconstruction backbones for incomplete traffic data, because missing values can be estimated from neighboring sensors and historical temporal context. However, high average accuracy does not necessarily imply local reliability. A model may reconstruct normal regions well while still producing harmful errors around sensor failures, non-recurrent congestion, or incident-induced perturbations. For robust reconstruction, the key question is therefore not only how to build a stronger backbone, but also how to judge whether a local backbone output should be trusted.
+Traffic reconstruction has benefited from both structured statistical priors and deep spatiotemporal modeling. Tensor completion and temporal factorization methods exploit low-rank and temporal regularities in traffic measurements \citep{chen2020nonconvex,chen2021scalable,chen2022latc}. Deep graph and attention models further capture nonlinear temporal dynamics and road-network dependencies, as shown in traffic forecasting and spatiotemporal modeling studies \citep{li2018dcrnn,yu2018stgcn,wu2019graphwavenet,zheng2020gman}. For missing data, recurrent, self-attention, diffusion, and graph neural imputation methods have become strong reconstruction choices \citep{cao2018brits,du2023saits,tashiro2021csdi,cini2022grin}. Recent traffic-oriented imputation models also introduce mask-aware graph repair and low-rank transformer structures \citep{liu2025maginet,liu2024imputeformer}. These methods provide strong backbones, but they mainly answer how to reconstruct a value. They do not directly answer whether a local correction to a strong backbone output is physically reliable.
 
-Time-series imputation research has developed several strong reconstruction paradigms. Recurrent imputation methods model bidirectional temporal dependencies \citep{cao2018brits}, self-attention methods improve long-range dependency modeling \citep{du2023saits}, diffusion-based methods provide probabilistic imputation \citep{tashiro2021csdi}, and graph neural imputation explicitly uses relational structure among variables \citep{cini2022grin}. More recent traffic-oriented or spatiotemporal methods further incorporate mask-aware graph reasoning and low-rank transformer structures \citep{liu2025maginet,liu2024imputeformer}. These methods are strong and practically relevant, and several of them serve as competitive backbones or baselines in this work. Nevertheless, most of them remain primarily data-driven: they learn when values are statistically plausible from observed patterns, but they do not explicitly ask whether the local reconstruction is physically reliable or whether a post-reconstruction correction may damage an already reasonable prediction.
+Physics-informed learning offers a different source of evidence. The broad idea is to constrain learning by physical residuals or domain equations \citep{raissi2019pinn}. In traffic modeling, physical constraints can represent flow-density-speed consistency, conservation relations, graph smoothness, or macroscopic traffic dynamics \citep{shi2021pidl,tang2024pimlcalibration,wang2024pistgnet}. Such priors are appealing because sparse observations alone may not identify the local traffic state. Yet the same priors can be risky in open road networks. A simplified residual that is meaningful in normal traffic can become unreliable around failed sensors, local incidents, non-periodic congestion, or speed-only datasets without explicit flow-density information. Fixed physics losses therefore suffer from a local physical-misguidance problem: they treat physics as equally trustworthy across all sensors and time steps, even when the physical relation is locally mismatched.
 
-Physics-informed learning offers a complementary direction. The general idea of physics-informed neural networks is to use differential equations or physical residuals to constrain learning \citep{raissi2019pinn}. In traffic systems, physics-informed deep learning has been used to incorporate traffic-flow relations into state estimation and urban traffic modeling \citep{shi2021pidl,yuan2024bathtub}. Such priors are valuable because sparse observations alone may be insufficient to identify traffic states. Yet traffic physics in open road networks is usually simplified, local, and regime-dependent. A fixed or globally weighted physical loss implicitly assumes that the selected physical relation is equally reliable across all sensors and time steps. This assumption can be fragile when detectors fail, incidents disturb local flow, or congestion deviates from recurrent patterns. In these cases, blindly enforcing physical consistency may become a source of local misguidance rather than a guarantee of robustness.
+This paper targets that gap. We propose \emph{PhyPro}, a physics-reliability promoted correction framework for traffic state reconstruction. Instead of adding a global physics loss to the backbone, PhyPro attaches a lightweight correction module after the backbone prediction. The module learns a generic residual correction, constructs a physics-aligned correction direction from local residual evidence, and estimates whether physics should promote the correction at each sensor and time step. It also suppresses promotion when local failure or conflict evidence suggests that physics may be misleading. This design reframes physics from a globally enforced constraint into a local reliability signal.
 
-This paper addresses the above gap by treating physics not as a globally enforced constraint, but as local reliability evidence. We propose \emph{PhyGuard}, a lightweight guard framework that can be attached to different traffic reconstruction backbones. Given a backbone prediction, PhyGuard constructs a local reliability vector from the observation mask, temporal gap, failure-mode score, graph-neighborhood deviation, temporal variation, and physics residuals. A compact guard module then predicts a correction gate and a bounded residual correction for each sensor and time step. The correction is further regularized by a failure-aware harm term, which discourages changes that are likely to damage reliable backbone outputs. In this design, physical residuals do not directly replace the backbone prediction. Instead, they help decide where correction is useful, how strong the correction should be, and where the original reconstruction should be preserved.
-
-The main contributions of this paper are summarized as follows:
+The contributions are as follows:
 \begin{enumerate}
-  \item[(1)] We identify the local physical-misguidance problem in sparse and disrupted traffic state reconstruction, and formulate physics as local reliability evidence rather than a fixed global constraint.
-  \item[(2)] We propose PhyGuard, a lightweight and backbone-agnostic guard framework that combines physics residuals, temporal evidence, failure-mode cues, and graph-neighborhood deviation to control bounded local corrections.
-  \item[(3)] We evaluate PhyGuard on five traffic datasets, three missing/disruption scenarios, and four strong reconstruction backbones. The results show an average MAE reduction of 7.04\%, with larger gains under random missing and incident perturbation, while ablations verify the roles of physics residuals, temporal evidence, and failure-aware guarding.
+  \item[(1)] We formulate the local physical-misguidance problem in sparse and disrupted traffic reconstruction, where fixed physical constraints may help in recoverable sparse regions but mislead the model under failures, incidents, or local conflicts.
+  \item[(2)] We propose PhyPro, a lightweight backbone-agnostic framework that combines data-driven residual correction with physics-aligned promotion controlled by local reliability, failure, and conflict evidence.
+  \item[(3)] We evaluate PhyPro on five traffic datasets, three disruption scenarios, three seeds, and four diverse reconstruction backbones. The results show consistent accuracy gains, significant paired improvements over plug-in baselines, low computational overhead, and interpretable reliability and promotion maps.
 \end{enumerate}
 
 \section{Related Work}
 
-\subsection{Traffic Data Imputation}
-Traffic data imputation has long exploited the fact that road sensors are not independent measurements. Early geo-sensory imputation methods use spatial proximity, temporal continuity, and view-specific correlations to recover missing traffic or urban sensing values \citep{yi2016stmvl}, and later reviews summarize how traffic missingness differs across random loss, communication interruption, and device failure \citep{chan2023trafficreview}. Recent traffic-specific models further strengthen this view by using graph attention, hierarchical graph convolution, and adversarial spatiotemporal generation to capture nonlocal sensor dependencies under incomplete observations \citep{shen2023garnn,huang2023stgain,xu2024hstgcn,zhang2024mlgan}. This line of work is important because it treats missing traffic data as a structured spatiotemporal problem rather than an isolated regression problem. It also shows that the missing pattern itself matters: random point-wise missingness, consecutive temporal gaps, and failed sensors provide different amounts of recoverable evidence.
+\subsection{Traffic and Spatiotemporal Imputation}
+Traffic data imputation has long exploited the structured nature of road-network measurements. Low-rank tensor and temporal factorization models recover missing values by assuming that traffic measurements share spatial, temporal, and variable-level dependencies \citep{chen2020nonconvex,chen2021scalable,chen2022latc}. Deep models extend this view by learning nonlinear dependencies from incomplete sequences and graphs. BRITS performs bidirectional recurrent imputation and treats missing values as differentiable variables in temporal state propagation \citep{cao2018brits}. SAITS uses self-attention to model temporal dependencies without recurrent states \citep{du2023saits}. CSDI introduces score-based probabilistic imputation for time series \citep{tashiro2021csdi}, while GRIN uses graph neural networks to fill gaps in multivariate time series \citep{cini2022grin}. For spatiotemporal traffic data, ImputeFormer introduces low-rankness-induced transformers for generalizable imputation, and MagiNet designs a mask-aware graph imputation network for incomplete traffic data \citep{liu2024imputeformer,liu2025maginet}.
 
-However, most traffic imputation methods are designed to produce a completed value directly. Their objectives usually emphasize reconstruction fidelity under a predefined missing protocol, while the reliability of a local reconstruction is not modeled as a separate decision. This distinction is central to the setting considered in this paper. In sparse and disrupted traffic reconstruction, a backbone may already provide a reasonable estimate in some regions, but may become unreliable around sensor failures or local incidents. PhyGuard therefore treats imputation as a guarded correction problem: the question is not only how to infer the missing value, but also whether a local correction should be applied to a strong backbone output.
-
-\subsection{Deep Time-Series and Spatiotemporal Imputation}
-Deep imputation methods have substantially improved the modeling of incomplete sequences. Recurrent decay mechanisms use informative missingness and temporal gaps to process irregularly observed multivariate time series \citep{che2018grud}. Generative adversarial imputation learns to fill missing entries through a discriminator that distinguishes observed and imputed components \citep{yoon2018gain}, while end-to-end adversarial sequence imputation extends this idea to multivariate temporal data \citep{luo2019e2gan}. Multiresolution sequence imputation further improves long-gap recovery by predicting missing segments at multiple temporal scales \citep{liu2019naomi}. More recently, conditional diffusion models have been introduced for spatiotemporal imputation, providing a probabilistic route for reconstructing missing values under complex spatial and temporal dependencies \citep{liu2023pristi}.
-
-These methods strengthen the reconstruction backbone from different perspectives: recurrent state propagation, adversarial distribution matching, multiscale temporal reasoning, and probabilistic generation. They are therefore closely related to the backbone side of traffic state reconstruction. Nevertheless, their main goal remains to improve the generated value itself. They do not explicitly use traffic physical residuals as local evidence for deciding whether a correction is reliable, nor do they regularize a correction according to whether it may harm a locally credible backbone prediction. PhyGuard is complementary to this route because it is designed as a lightweight guard attached after a backbone prediction, rather than as a replacement for the backbone.
+These studies provide strong reconstruction cores, and several of them are used as backbones in this work. Their limitation for our problem is not lack of capacity. Rather, they usually produce a completed state directly and do not explicitly separate reconstruction from the decision of whether a local correction is safe. PhyPro is complementary to these models: it operates as a post-backbone correction framework that estimates local reliability before applying a bounded correction.
 
 \subsection{Physics-Informed Traffic Modeling}
-Physics-informed traffic modeling aims to improve learning by incorporating domain constraints, such as conservation laws, traffic-flow relations, or fundamental-diagram assumptions. Such priors are attractive because traffic observations can be sparse and noisy, and purely data-driven models may extrapolate poorly in under-observed regions. Existing studies have surveyed physics-informed deep learning for traffic state estimation, used physics-informed learning to calibrate macroscopic traffic-flow models, and integrated fundamental-diagram learners or filtering mechanisms into spatiotemporal prediction architectures \citep{di2023pidlsurvey,tang2024pimlcalibration,wang2024pistgnet,deshpande2025pigrnn}. At the same time, traffic-flow physics in open road networks is often simplified, local, and regime-dependent. Recent analysis of physics-informed deep learning for traffic flow has shown that conservation-law-based formulations can face practical limitations when the modeled physical law, boundary condition, or observation regime is mismatched with the data-generating process \citep{huang2023pidllimit}.
+Physics-informed neural networks use physical residuals to regularize learning and have been applied to forward and inverse problems governed by differential equations \citep{raissi2019pinn}. In traffic systems, physics-informed deep learning has incorporated traffic-flow models into state estimation and calibrated macroscopic traffic-flow dynamics \citep{shi2021pidl,tang2024pimlcalibration}. Recent traffic prediction studies also integrate fundamental-diagram learners or filtering mechanisms into spatiotemporal neural networks \citep{wang2024pistgnet}. These methods show that traffic physics can improve data-driven modeling, especially when observations are sparse or noisy.
 
-This limitation does not imply that physics is unhelpful. Rather, it suggests that physical information should not always be used as a uniform constraint. A residual that is informative in a smooth random-missing region may become misleading around an incident, a failed detector, or a non-recurrent congestion pattern. PhyGuard follows this interpretation. Instead of minimizing a global physical residual as an additional loss for every location, it uses residuals as diagnostic features in a local reliability vector. The role of physics is therefore changed from direct enforcement to guarded evidence: it helps determine where a correction is plausible, where it should be amplified, and where it should be suppressed.
+The key issue is how physics is used. Most physics-informed formulations add a fixed or globally scheduled residual loss, which implicitly assumes that the chosen physical relation is valid everywhere. Open traffic networks violate this assumption. Directional upstream-downstream relations can be unavailable, speed-only datasets cannot support full flow-density residuals, and incidents or detector failures can create local states that deviate from simplified physical assumptions. PhyPro therefore does not minimize a global physics loss. It extracts physical residuals as local evidence and lets a reliability-promotion mechanism decide whether the physics-aligned direction should strengthen or suppress a correction.
 
-\subsection{Reliability-Aware Correction and Positioning}
-Reliability-aware learning provides a broader conceptual background for PhyGuard. Bayesian dropout and deep ensembles estimate predictive uncertainty by exposing model variability under approximate posterior sampling or multiple independently trained predictors \citep{gal2016dropout,lakshminarayanan2017deepensembles}. Confidence and calibration studies further show that neural networks can be overconfident and that the predicted confidence should be treated carefully when making decisions under distribution shift or misclassification risk \citep{hendrycks2017baseline,guo2017calibration}. Selective prediction extends this idea by allowing a model to abstain when the prediction is likely to be unreliable \citep{geifman2019selectivenet}.
+\subsection{Reliability-Aware Prediction and Correction}
+Reliability-aware learning studies how models estimate or calibrate confidence. Bayesian dropout and deep ensembles approximate predictive uncertainty by exposing model variability \citep{gal2016dropout,lakshminarayanan2017deepensembles}. Calibration and out-of-distribution studies show that neural networks can be overconfident and that confidence should be treated as a decision variable \citep{hendrycks2017baseline,guo2017calibration}. Selective prediction further allows a model to abstain when the estimated risk is high \citep{geifman2019selectivenet}.
 
-PhyGuard inherits the reliability-aware perspective, but its target is different from uncertainty estimation or selective classification. Traffic state reconstruction cannot simply abstain at a failed sensor or an incident region, because downstream monitoring and control still require a completed state. The practical decision is whether to keep the backbone output, apply a correction, or limit the correction strength. PhyGuard operationalizes this decision with local reliability features, a bounded correction gate, and failure-aware harm regularization. In this sense, it connects physics-informed learning and reliability-aware prediction: physics supplies local diagnostic evidence, while the guard mechanism controls how that evidence affects reconstruction.
+Traffic reconstruction cannot simply abstain from a missing sensor value; a completed state is still required. The relevant decision is whether to keep a backbone estimate, apply a generic correction, or promote a physics-aligned correction. PhyPro adapts the reliability-aware perspective to this setting. It does not use reliability as a final confidence score only. It uses reliability evidence to control the amplitude and direction of local reconstruction corrections.
 
 \section{Method}
 
 \subsection{Problem Formulation}
-Let $X \in \mathbb{R}^{T \times N \times C}$ denote the complete traffic state over $T$ time steps, $N$ sensors, and $C$ traffic variables. The binary observation mask is $M \in \{0,1\}^{T \times N \times C}$, where $M_{t,i,c}=1$ indicates that variable $c$ at sensor $i$ and time $t$ is observed. The incomplete observation is $X^{obs}=M \odot X$, and a reconstruction backbone $B_{\theta}$ produces an initial estimate
+Let $X \in \mathbb{R}^{T \times N \times C}$ denote a traffic-state sequence with $T$ time steps, $N$ sensors, and $C$ variables. Let $M \in \{0,1\}^{T \times N \times C}$ be the observation mask, where $M_{t,i,c}=1$ indicates an observed entry. The incomplete observation is
 \begin{equation}
-  \widetilde{X}=B_{\theta}(X^{obs},M,A),
+  X^{obs}=M \odot X .
 \end{equation}
-where $A$ is the road-network adjacency matrix. PhyGuard does not replace $B_{\theta}$. Instead, it learns a local guard function that decides whether the backbone estimate should be corrected at each sensor and time step.
-
-From a risk-control view, a correction is useful only if it reduces the local reconstruction loss. For a candidate correction $\Delta_{t,i}$ and loss $\ell(\cdot,\cdot)$, the desired decision is
+Given the road adjacency matrix $A$, a reconstruction backbone $B_{\theta}$ produces an initial estimate
 \begin{equation}
-  \mathcal{G}^{*}_{t,i}
+  X_0 = B_{\theta}(X^{obs},M,A).
+\end{equation}
+PhyPro does not modify the backbone architecture. It learns a lightweight correction function on top of $X_0$ and evaluates reconstruction error on a target region $\Omega$, such as missing entries, failed-sensor regions, or incident-perturbed regions.
+
+A correction should be applied only when it is expected to reduce local risk. For sensor $i$ at time $t$, let $\Delta_{t,i}$ be a candidate correction and $\mathbf{e}_{t,i}$ be local reliability evidence. The ideal local decision can be written as
+\begin{equation}
+  \mathcal{I}^{*}_{t,i}
   =
   \mathbb{I}
   \left[
-  \mathbb{E}\left(\ell(\widetilde{x}_{t,i}+\Delta_{t,i},x_{t,i}) \mid \mathbf{e}_{t,i}\right)
+  \mathbb{E}\{\ell(x_{0,t,i}+\Delta_{t,i},x_{t,i}) \mid \mathbf{e}_{t,i}\}
   <
-  \mathbb{E}\left(\ell(\widetilde{x}_{t,i},x_{t,i}) \mid \mathbf{e}_{t,i}\right)
-  \right],
-  \label{eq:ideal_guard}
+  \mathbb{E}\{\ell(x_{0,t,i},x_{t,i}) \mid \mathbf{e}_{t,i}\}
+  \right].
 \end{equation}
-where $\mathbf{e}_{t,i}$ is the local reliability evidence. This formulation separates two questions that are often mixed in reconstruction models: estimating a missing state and deciding whether a local modification of that estimate is reliable. Since the ground-truth local risks are unavailable at inference time, PhyGuard learns a parametric approximation to this decision from reliability evidence constructed from masks, temporal gaps, graph deviations, and physical residuals. The evaluated set $\Omega$ can be instantiated as missing entries, corrupted entries, or scenario-specific disrupted regions, which allows the same guard principle to be tested under random missingness, sensor failure, and incident perturbation.
+Since this oracle decision is unavailable at inference time, PhyPro learns a parametric approximation from reliability evidence. The important point is that physics is not assumed to be universally correct. It is one part of the evidence used to estimate whether a correction is locally beneficial.
 
-\subsection{Overview of PhyGuard}
-The framework is shown in Fig.~\ref{fig:mechanism}. Given a backbone reconstruction, PhyGuard first extracts local reliability evidence, then converts physical residuals into diagnostic signals rather than directly enforcing them as a global constraint. A lightweight guard network predicts a correction gate, a bounded residual correction, and a region-wise correction amplitude. The final reconstruction is produced by applying only guarded local corrections to the backbone output.
+\subsection{Overview}
+Figure~\ref{fig:mechanism} summarizes the framework. PhyPro contains three components: a generic correction branch, a physics direction branch, and a reliability-promotion branch. The final reconstruction is
+\begin{equation}
+  \hat{x}_{t,i}
+  =
+  x_{0,t,i}
+  +
+  g_{t,i}\Delta^{g}_{t,i}
+  +
+  \beta_{t,i}\Delta^{p}_{t,i},
+  \label{eq:phypro_output}
+\end{equation}
+where $\Delta^{g}_{t,i}$ is a data-driven residual correction, $\Delta^{p}_{t,i}$ is a physics-aligned direction, $g_{t,i}$ controls the generic correction, and $\beta_{t,i}$ is the local physics-promotion weight. In this formulation, physics does not directly predict the final value. It supplies a direction and a reliability signal for promoting correction.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{figures/phyguard_mechanism_reference_style_image2.png}
-  \caption{Mechanism of PhyGuard. Local missingness, sensor-failure cues, temporal variation, graph-neighborhood deviation, and physical residuals are converted into reliability evidence, which controls a bounded correction to the backbone reconstruction.}
+  \includegraphics[width=\linewidth]{figures/figure_phypro_mechanism.png}
+  \caption{Overview of PhyPro. A strong backbone first produces an initial reconstruction. PhyPro then learns a generic residual correction and a physics-aligned direction, while local evidence determines whether physics should promote or suppress the correction.}
   \label{fig:mechanism}
 \end{figure}
 
-\subsection{Local Reliability Evidence}
-For each time step $t$ and sensor $i$, PhyGuard constructs a reliability vector
+\subsection{Local Evidence Bank}
+For each $(t,i)$, PhyPro constructs an evidence vector
 \begin{equation}
   \mathbf{e}_{t,i}
   =
   \left[
-  \mathbf{m}_{t,i},
-  g_{t,i},
-  s^{fail}_{t,i},
-  d^{graph}_{t,i},
-  d^{temp}_{t,i},
-  \boldsymbol{\rho}^{phys}_{t,i}
+  m_{t,i},
+  q_{t,i},
+  f_{t,i},
+  r^{graph}_{t,i},
+  r^{temp}_{t,i},
+  u_{t,i},
+  c_{t,i}
   \right],
-  \label{eq:local_evidence}
 \end{equation}
-where $\mathbf{m}_{t,i}$ is the local observation mask, $g_{t,i}$ measures the temporal distance to recent observations, $s^{fail}_{t,i}$ indicates whether the missing pattern resembles sensor failure, $d^{graph}_{t,i}$ measures deviation from graph-neighborhood behavior, $d^{temp}_{t,i}$ measures local temporal variation, and $\boldsymbol{\rho}^{phys}_{t,i}$ is a bank of physics residual evidence. This representation makes the reliability decision local: different sensors, time steps, and disruption modes can receive different correction strengths.
+where $m_{t,i}$ denotes local observation availability, $q_{t,i}$ measures temporal gap or local sparsity, $f_{t,i}$ is a failure-mode score, $r^{graph}_{t,i}$ and $r^{temp}_{t,i}$ are graph and temporal residual features, $u_{t,i}$ is an observed-error proxy when available from validation-like evidence, and $c_{t,i}$ is a local conflict cue. The failure score is high when a sensor has persistent missingness, while the conflict cue is high when physical residuals, local discontinuity, or graph-neighborhood disagreement suggest that physics may be misleading.
 
-The evidence terms are normalized before being passed to the guard network. The temporal gap is computed as a clipped distance to the nearest observed value,
-\begin{equation}
-  g_{t,i}
-  =
-  \min
-  \left(
-  1,
-  \frac{1}{\tau_g}
-  \min_{\tau: M_{\tau,i}=1}|t-\tau|
-  \right),
-  \label{eq:temporal_gap}
-\end{equation}
-where $\tau_g$ is a maximum gap scale. The failure-mode score is a continuous cue derived from the duration and ratio of missing observations at the same sensor. It is not used to directly choose a branch; it only informs the guard that a correction may have persistent effects over a long temporal window. Graph deviation and temporal variation are computed on the backbone reconstruction:
+The graph residual direction is computed from the backbone estimate:
 \begin{equation}
   d^{graph}_{t,i}
   =
-  \frac{
-  \left|
-  \widetilde{x}_{t,i}
+  x_{0,t,i}
   -
-  \sum_j \bar{A}_{ij}\widetilde{x}_{t,j}
-  \right|}
-  {s_x+\epsilon},
-  \quad
+  \sum_{j}\bar{A}_{ij}x_{0,t,j},
+\end{equation}
+where $\bar{A}$ is a normalized adjacency matrix. The temporal direction is
+\begin{equation}
   d^{temp}_{t,i}
   =
-  \frac{
-  \left|
-  \widetilde{x}_{t,i}
-  -
-  \widetilde{x}_{t-1,i}
-  \right|}
-  {s_x+\epsilon},
-  \label{eq:graph_temporal_evidence}
+  x_{0,t,i}-x_{0,t-1,i}.
 \end{equation}
-where $s_x$ is a robust data scale and $\bar{A}$ is the row-normalized adjacency matrix. These two terms distinguish spatial inconsistency from temporal abruptness, which is useful because a random missing point, a failed sensor, and an incident region can have similar mask values but different graph-temporal behavior.
+For multivariate traffic states, an optional flow-density-speed residual can be included:
+\begin{equation}
+  r^{fd}_{t,i}
+  =
+  \frac{\hat{q}_{t,i}-\hat{\rho}_{t,i}\hat{v}_{t,i}}{s_{fd}},
+\end{equation}
+where the variables are computed in inverse-normalized physical scale and $s_{fd}$ is a robust scale factor. If a dataset is speed-only, unavailable residual components are masked out rather than forced into the model.
 
-\subsection{Physics Residuals as Diagnostic Evidence}
-PhyGuard treats physics as a local reliability guard, not as a uniformly enforced loss. For multivariate datasets, the residual bank can include a fundamental-diagram consistency residual
+\subsection{Physics-Reliability Promoted Correction}
+The generic correction branch uses data-driven features to produce a bounded residual:
 \begin{equation}
-  \rho^{fd}_{t,i}
+  \Delta^{g}_{t,i}
   =
-  \frac{\left|\hat{q}_{t,i} - \hat{\rho}_{t,i}\hat{v}_{t,i}\right|}
-  {s_{fd}+\epsilon},
-  \label{eq:fd_residual}
+  b\cdot \tanh\left(f_g(\mathbf{z}^{g}_{t,i})\right),
 \end{equation}
-where $\hat{q}$, $\hat{v}$, and $\hat{\rho}$ denote reconstructed flow, speed, and occupancy or density-like variables after inverse normalization, and $s_{fd}$ is a scale factor. For speed-only datasets, PhyGuard uses graph and temporal residuals, for example
+where $b$ is a correction bound and $\mathbf{z}^{g}_{t,i}$ contains backbone value, mask, temporal, graph, and local error-proxy features. The physics-aligned direction is constructed as
 \begin{equation}
-  \rho^{graph}_{t,i}
+  \Delta^{p}_{t,i}
   =
-  \frac{
-  \left|
-  \hat{v}_{t,i}
-  -
-  \sum_{j} \bar{A}_{ij}\hat{v}_{t,j}
-  \right|}
-  {s_{graph}+\epsilon},
-  \quad
-  \rho^{temp}_{t,i}
-  =
-  \frac{\left|\hat{v}_{t,i}-\hat{v}_{t-1,i}\right|}
-  {s_{temp}+\epsilon}.
-  \label{eq:speed_residuals}
-\end{equation}
-The residual bank is written as
-\begin{equation}
-  \boldsymbol{\rho}^{phys}_{t,i}
-  =
-  \left[
-  \rho^{fd}_{t,i},
-  \rho^{graph}_{t,i},
-  \rho^{temp}_{t,i}
-  \right],
-  \label{eq:residual_bank}
-\end{equation}
-with unavailable components masked out for datasets that do not contain the corresponding variables. All residuals are computed in the physical or inverse-normalized scale and then divided by robust scale estimates. This prevents a high-magnitude variable such as flow from dominating the evidence vector. The key point is that a large residual is not automatically interpreted as a correction target. It may also indicate that simplified traffic physics is locally unreliable. Therefore, residuals are used as features in $\mathbf{e}_{t,i}$ and are interpreted jointly with missingness, failure evidence, and graph-temporal context.
-
-\subsection{Guarded Bounded Correction}
-Given the local evidence, PhyGuard first encodes it into a compact latent reliability state,
-\begin{equation}
-  \mathbf{h}_{t,i}=\phi_{\eta}(\mathbf{e}_{t,i},\widetilde{x}_{t,i}),
-  \label{eq:evidence_encoder}
-\end{equation}
-where $\phi_{\eta}$ is a lightweight shared encoder. PhyGuard then predicts a correction gate $\alpha_{t,i}$, a raw residual correction $\Delta_{t,i}$, and a region-wise amplitude $\gamma_{t,i}$:
-\begin{equation}
-  \alpha_{t,i}=\sigma(f_{\alpha}(\mathbf{h}_{t,i})), \quad
-  \Delta_{t,i}=f_{\Delta}(\mathbf{h}_{t,i}), \quad
-  \gamma_{t,i}=1+\mathrm{softplus}(f_{\gamma}(\mathbf{h}_{t,i})).
-  \label{eq:guard_outputs}
-\end{equation}
-The final reconstruction is
-\begin{equation}
-  \hat{x}_{t,i}
-  =
-  \widetilde{x}_{t,i}
+  b\cdot \tanh\left(
+  \lambda_g d^{graph}_{t,i}
   +
-  \alpha_{t,i}
-  \cdot
-  \mathrm{clip}
-  \left(
-  \gamma_{t,i}\Delta_{t,i},
-  -b_{t,i},
-  b_{t,i}
+  \lambda_t d^{temp}_{t,i}
   \right),
-  \label{eq:bounded_correction}
 \end{equation}
-where $b_{t,i}$ is a local correction bound. In the implementation, the bound is parameterized as
-\begin{equation}
-  b_{t,i}=b_{\min}+(b_{\max}-b_{\min})\sigma(f_b(\mathbf{h}_{t,i})),
-  \label{eq:local_bound}
-\end{equation}
-which allows the guard to enlarge corrections in recoverable missing regions while remaining conservative in regions with high harm risk. This formulation is deliberately conservative. The gate determines whether a correction is applied, the amplitude determines how strongly it is promoted in regions where evidence supports correction, and the clipping term prevents aggressive updates from damaging reliable backbone predictions.
+with $\lambda_g+\lambda_t=1$. In the implementation, $\lambda_g=0.6$ and $\lambda_t=0.4$.
 
-\subsection{Failure-Aware Training Objective}
-PhyGuard is trained to improve reconstruction while discouraging harmful corrections. The reconstruction loss is
+The promotion branch receives reliability features and outputs
 \begin{equation}
-  \mathcal{L}_{rec}
-  =
-  \frac{1}{|\Omega|}
-  \sum_{(t,i,c)\in\Omega}
-  \left|
-  \hat{x}_{t,i,c}-x_{t,i,c}
-  \right|,
+  g_{t,i}=g_{\min}+(1-g_{\min})\sigma(f_{gate}(\mathbf{e}_{t,i})),
+  \quad
+  \beta^{raw}_{t,i}=\sigma(f_{\beta}(\mathbf{e}_{t,i})).
 \end{equation}
-where $\Omega$ denotes the evaluated missing or corrupted entries. To align the learned guard with the local risk principle defined above, we add a failure-aware harm loss:
+To prevent physics from amplifying abnormal local states, PhyPro applies conflict suppression:
 \begin{equation}
-  \mathcal{L}_{harm}
+  \beta_{t,i}
   =
-  \frac{1}{|\Omega|}
-  \sum_{(t,i,c)\in\Omega}
-  w^{fail}_{t,i}
-  \cdot
-  \max
-  \left(
-  0,
-  \left|\hat{x}_{t,i,c}-x_{t,i,c}\right|
-  -
-  \left|\widetilde{x}_{t,i,c}-x_{t,i,c}\right|
-  \right).
-  \label{eq:harm_loss}
+  \beta^{raw}_{t,i}
+  \left(1-\lambda_c C_{t,i}\right),
+  \quad
+  C_{t,i}\in[0,1],
 \end{equation}
-The weight $w^{fail}_{t,i}$ increases the penalty in failure-like regions, where an incorrect correction may persist across a long temporal window. The total objective is
+where $C_{t,i}$ combines failure score, residual rank, observed-error proxy, and spatial-gap rank. This mechanism is the central difference between PhyPro and a generic adapter. A generic adapter learns how to correct; PhyPro additionally learns when physics should promote that correction and when it should be suppressed.
+
+\subsection{Training Objective}
+PhyPro is trained on target reconstruction regions using
 \begin{equation}
   \mathcal{L}
   =
   \mathcal{L}_{rec}
-  +
-  \lambda_h\mathcal{L}_{harm}
-  +
-  \lambda_s\mathcal{L}_{smooth}
-  +
-  \lambda_g\mathcal{L}_{gate},
-  \label{eq:total_loss}
+  +\lambda_g\mathcal{L}_{gate}
+  +\lambda_p\mathcal{L}_{promo}
+  +\lambda_h\mathcal{L}_{harm}
+  +\lambda_s\mathcal{L}_{shrink}.
 \end{equation}
-where $\mathcal{L}_{smooth}$ regularizes unstable correction gates across adjacent time steps and $\mathcal{L}_{gate}$ is an optional calibration term for the guard output. A small $\lambda_h$ is used in practice so that harmful corrections are discouraged without suppressing useful corrections in difficult missing regions.
-
-The smoothness term is applied to the guard score rather than directly to the reconstructed value:
+The reconstruction term is the mean absolute error on missing or disrupted entries. The gate and promotion losses use contrastive utility labels derived from local error comparisons during training. The generic correction is useful when it improves over the backbone, and physics promotion is useful when a physics-aligned probe improves over the generic correction. The harm term penalizes corrections that exceed the better of the backbone and generic correction:
 \begin{equation}
-  \mathcal{L}_{smooth}
+  \mathcal{L}_{harm}
   =
-  \frac{1}{|\Omega|}
-  \sum_{(t,i)\in\Omega}
-  \left|
-  \alpha_{t,i}-\alpha_{t-1,i}
-  \right|.
-  \label{eq:smooth_loss}
-\end{equation}
-When supervised utility labels are available during training, the guard can also be calibrated by comparing the corrected output against the original backbone output:
-\begin{equation}
-  u_{t,i}
-  =
-  \mathbb{I}
+  \mathbb{E}_{(t,i)\in\Omega}
   \left[
-  \left|\hat{x}_{t,i}-x_{t,i}\right|
-  <
-  \left|\widetilde{x}_{t,i}-x_{t,i}\right|
+  w_{t,i}
+  \max
+  \left(
+  0,
+  |\hat{x}_{t,i}-x_{t,i}|-
+  \min(|x_{0,t,i}-x_{t,i}|,|x_{0,t,i}+\Delta^g_{t,i}-x_{t,i}|)
+  \right)
   \right],
-  \quad
-  \mathcal{L}_{gate}
-  =
-  \mathrm{BCE}(\alpha_{t,i},u_{t,i}).
-  \label{eq:gate_calibration}
 \end{equation}
-This term is used as a calibration signal rather than as the sole learning objective. The main reconstruction objective still determines the final correction, while the guard calibration encourages $\alpha_{t,i}$ to reflect whether local correction is empirically useful.
+where $w_{t,i}$ increases with failure and residual-conflict evidence. This term makes the correction conservative in regions where an incorrect update may persist or amplify a local abnormal state.
 
 \begin{algorithm}[t]
-\caption{PhyGuard local reliability inference}
-\label{alg:phyguard}
+\caption{PhyPro inference}
+\label{alg:phypro}
 \begin{algorithmic}[1]
-\Require $X^{obs}$, $M$, $A$, backbone $B_{\theta}$, guard maps $\phi_{\eta},f_{\alpha},f_{\Delta},f_{\gamma},f_b$, evaluated index set $\Omega$
-\Ensure $\hat{X}$, guard map $\alpha$, correction map $\Delta^{c}$
-\State $\widetilde{X} \gets B_{\theta}(X^{obs},M,A)$
-\ForAll{$(t,i)\in\Omega$}
-  \State $g_{t,i}\gets \min\{1,\tau_g^{-1}\min_{\tau:M_{\tau,i}=1}|t-\tau|\}$
-  \State $s^{fail}_{t,i}\gets \psi_f(M_{:,i})$
-  \State $d^{graph}_{t,i}\gets s_x^{-1}\left|\widetilde{x}_{t,i}-\sum_j\bar{A}_{ij}\widetilde{x}_{t,j}\right|$
-  \State $d^{temp}_{t,i}\gets s_x^{-1}\left|\widetilde{x}_{t,i}-\widetilde{x}_{t-1,i}\right|$
-  \State $\boldsymbol{\rho}^{phys}_{t,i}\gets \Pi_{\mathcal{S}}\left(\rho^{fd}_{t,i},\rho^{graph}_{t,i},\rho^{temp}_{t,i}\right)$
-  \State $\mathbf{e}_{t,i}\gets [\mathbf{m}_{t,i},g_{t,i},s^{fail}_{t,i},d^{graph}_{t,i},d^{temp}_{t,i},\boldsymbol{\rho}^{phys}_{t,i}]$
-  \State $\mathbf{h}_{t,i}\gets\phi_{\eta}(\mathbf{e}_{t,i},\widetilde{x}_{t,i})$
-  \State $\alpha_{t,i}\gets\sigma(f_{\alpha}(\mathbf{h}_{t,i}))$
-  \State $\gamma_{t,i}\gets1+\mathrm{softplus}(f_{\gamma}(\mathbf{h}_{t,i}))$
-  \State $b_{t,i}\gets b_{\min}+(b_{\max}-b_{\min})\sigma(f_b(\mathbf{h}_{t,i}))$
-  \State $\Delta^{c}_{t,i}\gets\alpha_{t,i}\,\mathrm{clip}\!\left(\gamma_{t,i}f_{\Delta}(\mathbf{h}_{t,i}),-b_{t,i},b_{t,i}\right)$
-  \State $\hat{x}_{t,i}\gets\widetilde{x}_{t,i}+\Delta^{c}_{t,i}$
+\Require Incomplete observation $X^{obs}$, mask $M$, graph $A$, trained backbone $B_{\theta}$
+\State $X_0 \gets B_{\theta}(X^{obs},M,A)$
+\For{each sensor-time pair $(t,i)$}
+  \State Build local evidence $\mathbf{e}_{t,i}$ from mask, temporal gap, failure score, residual rank, and conflict cues
+  \State Compute generic correction $\Delta^g_{t,i}=b\tanh(f_g(\mathbf{z}^{g}_{t,i}))$
+  \State Compute physics direction $\Delta^p_{t,i}=b\tanh(0.6d^{graph}_{t,i}+0.4d^{temp}_{t,i})$
+  \State Estimate correction gate $g_{t,i}$ and promotion weight $\beta_{t,i}$
+  \State $\hat{x}_{t,i}\gets x_{0,t,i}+g_{t,i}\Delta^g_{t,i}+\beta_{t,i}\Delta^p_{t,i}$
 \EndFor
-\State \Return $\hat{X}$, $\alpha$, $\Delta^{c}$
+\State \Return $\hat{X}$ and local reliability/promotion maps
 \end{algorithmic}
 \end{algorithm}
 
 \section{Experiments}
 
 \subsection{Datasets and Disruption Protocols}
-We evaluate PhyGuard on five traffic datasets. PEMS03, PEMS04, and PEMS08 represent freeway measurements from different regions and sensor scales, while PEMS-BAY and METR-LA provide commonly used speed-based traffic sensor networks. These datasets cover both multivariate and speed-only reconstruction settings, which allows us to test whether the proposed residual bank can be used across different traffic-state representations.
+We evaluate PhyPro on five public traffic datasets: PEMS03, PEMS04, PEMS08, PEMS-BAY, and METR-LA. PEMS03, PEMS04, and PEMS08 provide freeway traffic measurements from different sensor networks, while PEMS-BAY and METR-LA are widely used speed-based traffic sensor datasets. The use of both multivariate and speed-only datasets tests whether the reliability-promotion idea generalizes beyond a single residual definition.
 
-We consider three sparse or disrupted reconstruction protocols. The first protocol, random missing, removes observed values uniformly and evaluates point-wise sparse reconstruction. The second protocol, sensor failure, removes observations from selected sensors over a continuous temporal window and represents persistent detector malfunction. The third protocol, incident perturbation, introduces local abnormal traffic states and evaluates whether reconstruction remains robust when local physical regularities may become unreliable. All reported results are averaged over three random seeds.
+We consider three reconstruction protocols. Random missing removes observed entries uniformly and tests sparse point-wise reconstruction. Sensor failure removes selected sensors over the evaluated window and represents persistent detector malfunction. Incident perturbation injects local disrupted traffic states and tests whether the model avoids unreliable local corrections under abnormal dynamics. All main results use three random seeds.
 
 \subsection{Baselines and Backbones}
-PhyGuard is evaluated as a plug-in guard attached to four strong reconstruction backbones: MagiNet, SAITS, BRITS, and ImputeFormer. The selected backbones are intentionally diverse rather than minor variants of the same architecture. BRITS represents recurrent bidirectional imputation, where missing values are recovered through forward--backward temporal state propagation. SAITS represents self-attention-based time-series imputation, emphasizing long-range temporal dependency modeling without recurrent states. ImputeFormer represents transformer-style masked spatiotemporal reconstruction, with a stronger emphasis on structured missing-pattern modeling. MagiNet represents mask-aware graph repair for traffic data, where spatial neighborhood structure and missingness are jointly encoded. Together, these models cover temporal recurrence, temporal self-attention, transformer masking, and graph-aware traffic repair, which makes them suitable for testing whether PhyGuard is a backbone-agnostic reliability mechanism rather than an improvement tied to one specific model family. For each backbone, we compare the original reconstruction against the corresponding PhyGuard-enhanced output under the same split, mask, scenario, and evaluation region. This paired protocol isolates the contribution of the local reliability guard from the capacity of the backbone itself.
+PhyPro is attached to four strong and diverse reconstruction backbones: BRITS, SAITS, ImputeFormer, and MagiNet. BRITS represents bidirectional recurrent imputation, SAITS represents self-attention-based temporal imputation, ImputeFormer represents transformer-style masked spatiotemporal imputation, and MagiNet represents mask-aware graph repair. This selection avoids testing only minor variants of one architecture family.
 
-\subsection{Evaluation Metrics and Implementation Details}
-MAE is used as the primary metric because it directly measures absolute reconstruction error on missing or disrupted entries. RMSE and MAPE are recorded for completeness but are not used as the main ranking criterion because the studied protocols emphasize sparse and locally disrupted reconstruction. Unless otherwise stated, tables report mean MAE over three random seeds. In the main result table, the best result in each row is shown in bold and the second-best result is underlined.
+We report two types of comparisons. The first compares each backbone with the same backbone enhanced by PhyPro. The second compares PhyPro with plug-in baselines under the same backbone outputs: Generic Adapter, Calibration Guard, and Failure/Anomaly Guard. This protocol isolates whether PhyPro improves because of physics-reliability promotion rather than because an additional adapter was added.
+
+\subsection{Metrics and Implementation}
+The primary metric is masked MAE on the target missing or disrupted region:
+\begin{equation}
+  \mathrm{MAE}_{\Omega}
+  =
+  \frac{1}{|\Omega|}
+  \sum_{(t,i,c)\in\Omega}
+  |\hat{x}_{t,i,c}-x_{t,i,c}|.
+\end{equation}
+RMSE and MAPE are recorded but not used for the main ranking. PhyPro uses 23,365 trainable parameters, correction bound $b=0.20$, gate floor $g_{\min}=0.95$, and conflict coefficient $\lambda_c=0.75$ unless otherwise stated.
 
 \subsection{Main Results}
-Table~\ref{tab:main_mae} reports the main MAE results. PhyGuard consistently improves strong reconstruction backbones across datasets and disruption scenarios. Averaged over all paired comparisons, PhyGuard reduces MAE by 7.04\%. The reduction is larger under random missing and incident perturbation, reaching 8.98\% and 7.92\%, respectively. Sensor failure is more challenging because long-term node-level absence weakens local evidence and makes graph-temporal extrapolation less identifiable, but PhyGuard still reduces average MAE by 4.23\%. These results support the central claim that physics is most useful when used as local reliability evidence for guarded correction rather than as a globally enforced constraint.
+Table~\ref{tab:main_mae} reports the main paired comparison. PhyPro improves all four backbones on average. Across 180 paired runs, the mean masked MAE decreases from 0.3804 to 0.3441, corresponding to a 10.58\% average reduction. The gain is larger under random missing and incident perturbation than under sensor failure, which agrees with the motivation that physical and graph-temporal evidence is more identifiable in recoverable sparse regions than in persistent node-level absence.
 
 \begin{table}[t]
 \centering
 \scriptsize
 \setlength{\tabcolsep}{1.8pt}
-\caption{Main MAE results under sparse and disrupted reconstruction protocols. Lower is better. The best result in each row is bolded and the second-best result is underlined. B+PG, IF+PG, M+PG, and S+PG denote BRITS, ImputeFormer, MagiNet, and SAITS enhanced by PhyGuard, respectively.}
+\caption{Main masked MAE results. Lower is better. The best result in each row is bolded and the second-best result is underlined. B+PP, IF+PP, M+PP, and S+PP denote BRITS, ImputeFormer, MagiNet, and SAITS enhanced by PhyPro.}
 \label{tab:main_mae}
 \resizebox{\textwidth}{!}{%
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llcccccccc@{}}
 \toprule
-Dataset & Scenario & BRITS & B+PG & IF & IF+PG & MagiNet & M+PG & SAITS & S+PG \\
+Dataset & Scenario & BRITS & B+PP & IF & IF+PP & MagiNet & M+PP & SAITS & S+PP \\
 \midrule
 METR-LA & Incident & 0.4605 & 0.4235 & 0.3671 & \textbf{0.3455} & 0.3766 & \underline{0.3577} & 0.4725 & 0.4445 \\
 METR-LA & Random & 0.4462 & 0.4080 & 0.3371 & \textbf{0.3181} & 0.3576 & \underline{0.3363} & 0.4575 & 0.4290 \\
@@ -379,139 +290,169 @@ PEMS08 & Failure & \underline{0.4257} & \textbf{0.4148} & 0.6324 & 0.6115 & 0.50
 }
 \end{table}
 
-\subsection{Backbone Generality}
-Table~\ref{tab:generality} summarizes the paired improvements across backbones. PhyGuard improves all four backbones on average, with the largest mean reduction observed on BRITS and the smallest, but still positive, reduction observed on MagiNet. This trend is expected because stronger backbones leave less room for correction. More importantly, the improvement is not tied to a single backbone family: recurrent, attention-based, transformer-based, and graph-oriented reconstruction cores all benefit from the same local reliability guard.
+\subsection{Plug-in Comparison and Significance}
+Table~\ref{tab:plugin} compares PhyPro with other plug-in adapters. Generic Adapter already improves the backbone by learning a data-driven residual correction. PhyPro further improves over it by adding physics-reliability promotion and conflict suppression. Paired tests in Table~\ref{tab:significance} show that the improvements are statistically stable across matched dataset, scenario, seed, and backbone settings.
 
 \begin{table}[t]
 \centering
-\caption{Backbone generality of PhyGuard. MAE is averaged over datasets, scenarios, and seeds.}
-\label{tab:generality}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lccc}
+\caption{Plug-in comparison over 180 paired runs. Values are mean masked MAE. Lower is better.}
+\label{tab:plugin}
+\begin{tabular}{lcc}
 \toprule
-Backbone & Backbone MAE & +PhyGuard MAE & Reduction \\
+Method & Masked MAE & Runs \\
 \midrule
-BRITS & 0.3863 & 0.3563 & 8.49$\pm$3.96\% \\
-SAITS & 0.3789 & 0.3537 & 7.25$\pm$4.14\% \\
-ImputeFormer & 0.3986 & 0.3707 & 7.20$\pm$3.35\% \\
-MagiNet & 0.3610 & 0.3461 & 5.22$\pm$3.63\% \\
+Backbone & 0.3804 $\pm$ 0.1881 & 180 \\
+Generic Adapter & 0.3496 $\pm$ 0.1830 & 180 \\
+Calibration Guard & 0.3556 $\pm$ 0.1843 & 180 \\
+Failure/Anomaly Guard & 0.3550 $\pm$ 0.1841 & 180 \\
+PhyPro & \textbf{0.3441 $\pm$ 0.1805} & 180 \\
 \bottomrule
 \end{tabular}
-}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Paired significance tests for PhyPro. Comparisons use matched dataset, scenario, seed, and backbone settings.}
+\label{tab:significance}
+\begin{tabular}{lccc}
+\toprule
+Comparison & Mean improvement & Paired $t$-test $p$ & Wilcoxon $p$ \\
+\midrule
+PhyPro vs Backbone & 10.58\% & $2.29{\times}10^{-54}$ & $2.73{\times}10^{-31}$ \\
+PhyPro vs Generic Adapter & 1.58\% & $1.01{\times}10^{-21}$ & $7.02{\times}10^{-28}$ \\
+PhyPro vs Calibration Guard & 3.46\% & $3.12{\times}10^{-38}$ & $1.09{\times}10^{-30}$ \\
+PhyPro vs Failure/Anomaly Guard & 3.29\% & $8.13{\times}10^{-36}$ & $1.33{\times}10^{-30}$ \\
+\bottomrule
+\end{tabular}
 \end{table}
 
 \subsection{Ablation Study}
-We conduct ablation studies to examine the contribution of each component. Removing the physics residual bank tests whether physical evidence is useful. Removing temporal features tests the role of temporal gap and local temporal variation. Removing the failure score evaluates whether explicit failure-mode evidence helps under persistent missingness. Removing the gate tests whether the improvement comes from reliability-controlled correction rather than an unconditional residual update. Table~\ref{tab:ablation} shows that the complete failure-aware configuration is the strongest variant. The large drop caused by removing temporal features indicates that physical residuals should be interpreted together with temporal evidence, rather than used as isolated correction signals. Harm-penalty weights are studied separately in the parameter sensitivity analysis.
+Table~\ref{tab:ablation} reports a selected ablation on PEMS08 using SAITS and MagiNet over three scenarios and three seeds. The residual/evidence bank is the most important component: removing it brings the model close to the backbone. Generic correction alone is helpful, but full PhyPro achieves lower MAE by adding physics-reliability promotion. Conflict and failure terms have smaller average effects because their benefit is scenario-dependent, especially under sensor failure and incident-like regions.
 
 \begin{table}[t]
 \centering
-\caption{Ablation study of PhyGuard components. Lower MAE is better.}
+\caption{Selected ablation results on PEMS08. Internal diagnostic variants are omitted from the main text.}
 \label{tab:ablation}
 \begin{tabular}{lccc}
 \toprule
-Variant & MAE & Reduction & $|\Delta|$ mean \\
+Variant & Masked MAE & Gate mean & Promotion mean \\
 \midrule
-Full PhyGuard & \textbf{0.3638} & 6.98$\pm$4.67\% & 0.0929 \\
-Full without failure-aware harm & 0.3819 & 2.10$\pm$1.78\% & 0.0335 \\
-No failure score & 0.3820 & 2.09$\pm$1.74\% & 0.0332 \\
-No gate & 0.3820 & 2.10$\pm$1.67\% & 0.0288 \\
-No physics residual & 0.3829 & 1.88$\pm$1.71\% & 0.0345 \\
-No temporal features & 0.3864 & 1.00$\pm$1.62\% & 0.0283 \\
+Backbone & 0.2988 & -- & -- \\
+Generic correction only & 0.2863 & 1.0000 & -- \\
+Full PhyPro & \textbf{0.2786} & 0.9566 & 0.4872 \\
+w/o physics promotion & 0.2789 & 0.9567 & 0.0779 \\
+w/o residual/evidence bank & 0.2975 & 0.9682 & 0.3322 \\
+w/o conflict suppression & 0.2788 & 0.9572 & 0.5500 \\
+w/o failure evidence & 0.2786 & 0.9568 & 0.5230 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Parameter Sensitivity}
-We further examine the sensitivity of PhyGuard to the harm penalty, since this term controls how conservative the guard should be when a correction may damage a reliable backbone output. Table~\ref{tab:param_sensitivity} reports a small validation sweep on PEMS08 and PEMS-BAY with three scenarios and three seeds. Removing the harm penalty gives the lowest average MAE, while a small fixed weight of 0.05 gives nearly the same MAE with a similar correction magnitude. Larger weights make the correction increasingly conservative and reduce the average gain. This trend supports the design choice of using a small and reliability-aware harm penalty: it suppresses harmful corrections in high-risk regions without eliminating useful corrections in recoverable missing regions.
+Table~\ref{tab:param_sensitivity} reports a small sensitivity check for the gate floor and conflict coefficient. The table is used only to justify the final default configuration. The best setting among the tested pairs is $g_{\min}=0.95$ and $\lambda_c=0.75$.
 
 \begin{table}[t]
 \centering
-\caption{Parameter sensitivity to the harm-penalty weight. MAE is averaged over PEMS08 and PEMS-BAY with three scenarios and three seeds.}
+\caption{Parameter sensitivity for the final PhyPro configuration.}
 \label{tab:param_sensitivity}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lcccc}
+\begin{tabular}{ccccc}
 \toprule
-Setting & MAE & Mean reduction & Gate mean & $|\Delta|$ mean \\
+Gate floor & Conflict coefficient & Masked MAE & Gate mean & Promotion mean \\
 \midrule
-No harm penalty & \textbf{0.3633} & \textbf{7.42\%} & 0.6929 & 0.1018 \\
-Fixed harm 0.05 & \underline{0.3640} & \underline{7.12\%} & 0.7019 & 0.0975 \\
-Fixed harm 0.10 & 0.3655 & 6.56\% & 0.7072 & 0.0910 \\
-Fixed harm 0.20 & 0.3685 & 5.55\% & 0.7122 & 0.0785 \\
-Strong fixed harm & 0.3825 & 2.01\% & 0.7079 & 0.0326 \\
+0.95 & 0.75 & \textbf{0.3143} & 0.9730 & 0.4252 \\
+0.90 & 0.50 & 0.3170 & 0.9461 & 0.4597 \\
+0.95 & 0.50 & 0.3177 & 0.9730 & 0.4599 \\
+0.90 & 0.75 & 0.3219 & 0.9461 & 0.4251 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Interpretability Analysis}
+Figure~\ref{fig:case_study} visualizes a representative PEMS-BAY case under random missing. The panels show the initial backbone reconstruction, PhyPro reconstruction, error reduction, learned correction, physics direction, promotion weight, and failure evidence. The example illustrates how PhyPro exposes the mechanism behind the update: the final correction is not a black-box residual, but a combination of a learned correction and a physics-aligned promotion term.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/figure_phypro_case.png}
+  \caption{Representative PhyPro reconstruction case on PEMS-BAY under random missing with 50\% missingness. PhyPro reduces masked MAE from 0.2457 to 0.2070 in this case.}
+  \label{fig:case_study}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Region-level mechanism statistics. The table reports mechanism variables only and does not repeat main-table gains.}
+\label{tab:interpretability}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccc}
+\toprule
+Region & Masked MAE & Reliability gate & Promotion mean & $|\Delta_g|$ mean & Failure score \\
+\midrule
+Random missing & 0.2261 & 0.9503 & 0.5264 & 0.0757 & 0.0764 \\
+Sensor failure & 0.5583 & 0.9545 & 0.5512 & 0.1185 & 0.7825 \\
+Incident/disrupted & 0.2479 & 0.9503 & 0.5233 & 0.0759 & 0.0764 \\
 \bottomrule
 \end{tabular}
 }
 \end{table}
 
-\subsection{Reliability and Interpretability Analysis}
-To verify whether the guard behaves consistently with its intended role, we analyze the learned gate score, correction magnitude, and failure score under different scenarios. Under random missing and incident perturbation, PhyGuard applies corrections in locally recoverable regions and achieves stronger average reductions. Under sensor failure, the failure score is substantially higher and the guard becomes more conservative. This behavior is desirable: persistent node-level absence is less identifiable from local physics, so the model should avoid aggressive corrections that may amplify a wrong local estimate. The observed gate and correction statistics therefore support the interpretation of PhyGuard as a local reliability guard rather than a fixed residual corrector. A representative qualitative case is shown in Fig.~\ref{fig:case_study}, where the guard score and correction map explain how PhyGuard modifies the backbone output locally.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figures/figure_phyguard_case.png}
-  \caption{Representative reconstruction case on PEMS-BAY under random missing with 50\% missingness. The figure compares the ground truth, observed input, missing mask, backbone prediction, PhyGuard prediction, error reduction, correction gate, correction delta, and failure score. In this case, PhyGuard reduces masked MAE from 0.2457 to 0.2194, corresponding to a 10.70\% reduction.}
-  \label{fig:case_study}
-\end{figure}
-
 \subsection{Robustness to Missing Rates}
-Table~\ref{tab:missing_rate} reports robustness under random missing rates of 30\%, 50\%, and 70\%. PhyGuard maintains positive improvements across all tested missing rates. The mean reduction decreases as missingness becomes more severe, which is expected because both data-driven and physical evidence become less informative when observations are extremely sparse. Nevertheless, the consistent improvements indicate that PhyGuard remains effective beyond a single missing-rate setting.
+Table~\ref{tab:missing_rate} reports a quick missing-rate robustness check on PEMS08, PEMS-BAY, and METR-LA using SAITS and MagiNet. PhyPro remains the best plug-in across 30\%, 50\%, and 70\% random missing rates. The margin decreases at 70\% missingness, which is expected because both data-driven evidence and physics-aligned directions become less identifiable under extreme sparsity.
 
 \begin{table}[t]
 \centering
 \small
-\caption{Robustness to different random missing rates.}
+\caption{Missing-rate robustness under random missing protocols.}
 \label{tab:missing_rate}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{cccc}
+\begin{tabular}{lccccc}
 \toprule
-Missing rate & Backbone MAE & +PhyGuard MAE & Reduction \\
+Missing rate & Backbone & Generic Adapter & Calibration Guard & Failure/Anomaly Guard & PhyPro \\
 \midrule
-30\% & 0.2911 & 0.2639 & 8.74$\pm$4.94\% \\
-50\% & 0.3158 & 0.2912 & 7.22$\pm$4.15\% \\
-70\% & 0.3407 & 0.3208 & 5.90$\pm$1.95\% \\
+30\% & 0.3173 $\pm$ 0.1124 & 0.2960 $\pm$ 0.1020 & 0.3019 $\pm$ 0.1050 & 0.3051 $\pm$ 0.1072 & \textbf{0.2815 $\pm$ 0.0974} \\
+50\% & 0.3317 $\pm$ 0.1140 & 0.3097 $\pm$ 0.1035 & 0.3147 $\pm$ 0.1065 & 0.3160 $\pm$ 0.1078 & \textbf{0.2988 $\pm$ 0.1002} \\
+70\% & 0.3583 $\pm$ 0.1164 & 0.3372 $\pm$ 0.1085 & 0.3422 $\pm$ 0.1109 & 0.3427 $\pm$ 0.1113 & \textbf{0.3307 $\pm$ 0.1080} \\
 \bottomrule
 \end{tabular}
 }
 \end{table}
 
 \subsection{Complexity Analysis}
-PhyGuard is designed as a lightweight add-on module. At inference time, it requires only the incomplete observation, mask, graph, and backbone prediction; ground-truth values are not used. Since the guard operates through point-wise evidence encoding and bounded residual correction, its additional cost is linear in the number of evaluated sensor-time pairs. Table~\ref{tab:complexity} shows that PhyGuard adds only 5,954 trainable parameters, and the additional forward time is below one millisecond per batch on all evaluated datasets. This supports the claim that the improvement is obtained through local reliability estimation rather than increased backbone capacity.
+PhyPro is lightweight because it operates on local evidence after the backbone output is produced. Table~\ref{tab:complexity} reports the additional trainable parameters and forward time. The module adds 23,365 parameters and less than 2.6 ms per batch on the tested datasets.
 
 \begin{table}[t]
 \centering
 \small
-\caption{Complexity overhead of PhyGuard. Runtime is measured as extra forward time per batch with batch shape $16{\times}12{\times}N{\times}1$.}
+\caption{Complexity overhead of PhyPro. Runtime is extra forward time per batch with shape $16{\times}12{\times}N{\times}1$.}
 \label{tab:complexity}
 \begin{tabular}{lccc}
 \toprule
 Dataset & Nodes & Extra params & Extra time (ms) \\
 \midrule
-PEMS03 & 358 & 5,954 & 0.846 \\
-PEMS04 & 307 & 5,954 & 0.602 \\
-PEMS08 & 170 & 5,954 & 0.334 \\
-PEMS-BAY & 325 & 5,954 & 0.642 \\
-METR-LA & 207 & 5,954 & 0.386 \\
+PEMS03 & 358 & 23,365 & 2.52 \\
+PEMS04 & 307 & 23,365 & 1.93 \\
+PEMS08 & 170 & 23,365 & 0.99 \\
+PEMS-BAY & 325 & 23,365 & 2.11 \\
+METR-LA & 207 & 23,365 & 1.21 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \section{Discussion}
+PhyPro differs from fixed physics-informed losses in both objective and failure mode. A fixed physics loss assumes that the same residual should guide every sensor and time step. PhyPro assumes the opposite: physical evidence is useful only when local observations, graph context, temporal behavior, and residual consistency indicate that it is reliable. This explains why the method uses physics as a promotion direction and conflict-aware reliability signal rather than as a universally enforced constraint. The paired improvements over Generic Adapter show that the benefit is not merely the presence of an additional residual correction head; physics-reliability evidence provides a small but stable advantage on top of a strong generic correction.
 
-The experimental results support the central motivation of this paper: in sparse and disrupted traffic reconstruction, physical information is useful, but it should not be enforced as a uniform constraint. Across five datasets, three disruption scenarios, and four reconstruction backbones, PhyGuard reduces MAE by 7.04\% on average, with stronger gains under random missing and incident perturbation. Sensor failure remains more difficult because node-level absence weakens both local observation evidence and residual identifiability, but PhyGuard still achieves a 4.23\% average reduction in this setting. The ablation and sensitivity results further show that the correction decision depends on both data-driven and physics-derived evidence. Removing temporal features, physical residuals, the gate, or failure-mode cues weakens the model, while the harm-penalty sweep reveals a trade-off between aggressive correction and paired-run stability. These findings support the role of physics as local diagnostic evidence: residuals are interpreted together with mask, temporal, graph, and failure signals before a bounded correction is applied.
+The sensor-failure scenario yields smaller gains than random missing and incident perturbation. This result is consistent with the problem structure. In sensor failure, an entire node can be unobserved for a long interval, so both local temporal evidence and physical residuals become less identifiable. Neighboring sensors may not fully determine the failed node, and aggressive correction can propagate a wrong estimate. PhyPro therefore behaves more conservatively in this setting, as reflected by high failure scores and bounded correction magnitudes. The result should not be interpreted as physics being useless under sensor failure; rather, it shows that persistent node-level absence is the hardest case for local reliability promotion.
 
-The results also clarify the intended scope of PhyGuard. It is not designed to replace a strong imputation backbone or to act as a manually selected ensemble. Instead, it is a lightweight reliability layer that decides whether a local backbone output should be preserved, corrected, or corrected only within a bounded range. This design improves recurrent, attention, transformer, and graph reconstruction cores while adding only a small computational overhead. Several limitations remain. The current residual bank uses lightweight traffic relations and graph-neighborhood consistency, which may be less expressive for speed-only datasets or road segments without explicit directional structure. The incident protocol is controlled rather than based on manually verified real incident annotations, and downstream effects on forecasting or traffic control are not yet evaluated. Nevertheless, the guard score, correction delta, and failure score provide useful diagnostic maps, making the method more inspectable than an unconstrained black-box correction module.
+PhyPro is designed as a plug-in rather than a new backbone because the studied gap is not simply backbone capacity. Strong backbones already model temporal recurrence, self-attention, transformer masking, or graph repair. The missing component is a local mechanism that decides how a correction should interact with physical evidence. A plug-in design makes this mechanism compatible with different reconstruction cores, keeps the added cost small, and allows the same reliability and promotion maps to be inspected across backbones. This positioning also limits the claim: PhyPro does not replace the need for strong reconstruction models, but it improves their local reliability under sparse and disrupted sensing.
 
 \section{Conclusion}
+This paper introduced PhyPro, a physics-reliability promoted correction framework for robust traffic state reconstruction. PhyPro addresses the local physical-misguidance problem by replacing globally enforced physics with local reliability-controlled promotion. Given a backbone reconstruction, it combines a data-driven correction proposal, a physics-aligned direction, and conflict-aware promotion weights to decide when physics should strengthen or suppress local corrections.
 
-This paper presented PhyGuard, a lightweight physics-reliability-aware guard framework for sparse and disrupted traffic state reconstruction. Instead of enforcing simplified traffic physics globally, PhyGuard treats physical residuals as local diagnostic evidence and combines them with temporal, graph, mask, and failure-mode cues to control bounded corrections to a backbone reconstruction. This design directly targets the local physical-misguidance problem: physics may help in recoverable sparse regions, but may mislead under sensor failures, incidents, and abnormal traffic states.
-
-Experiments on five traffic datasets, three disruption scenarios, and four reconstruction backbones show that PhyGuard consistently improves strong reconstruction cores while adding only 5,954 trainable parameters and less than one millisecond of extra forward time per batch. The main results, ablations, robustness analysis, and qualitative visualization jointly support the paper's main claim: physical knowledge is most useful for robust traffic reconstruction when it acts as a local reliability guard rather than a fixed global constraint. Future work will extend the residual bank with direction-aware traffic-flow relations, validate the framework on real incident annotations, and study how reliability-guarded reconstruction affects downstream traffic prediction and decision-making tasks.
+Experiments on five public datasets, three disruption protocols, three random seeds, and four diverse reconstruction backbones show that PhyPro consistently improves masked MAE while adding only 23,365 trainable parameters. The plug-in comparison, ablation, missing-rate robustness, significance tests, complexity analysis, and visual explanations jointly support the central claim: physics is most useful for robust traffic reconstruction when it serves as local reliability evidence for correction, not as a fixed global constraint.
 
 \section*{Data Availability}
-The raw traffic datasets are not redistributed with this manuscript. The experiments use public benchmark files from the following sources: PEMS03, PEMS04, and PEMS08 are loaded from Zenodo record 7816008; PEMS-BAY is loaded from the Hugging Face dataset \texttt{MintBruce/SkyTraffic}; and METR-LA is loaded from the Hugging Face dataset \texttt{witgaw/METR-LA}. Users should comply with the terms of the original dataset providers and the corresponding public mirrors. The code also includes synthetic traffic-like data generation only for smoke testing; synthetic results are not used as paper evidence.
+The experiments use public traffic benchmark datasets. PEMS03, PEMS04, and PEMS08 are loaded from public PEMS benchmark mirrors, PEMS-BAY is loaded from the Hugging Face dataset \texttt{MintBruce/SkyTraffic}, and METR-LA is loaded from the Hugging Face dataset \texttt{witgaw/METR-LA}. The repository documents the exact loaders and preprocessing scripts used in the experiments. Raw datasets are not redistributed by this manuscript.
 
 \section*{Code Availability}
-The implementation, reproduction scripts, dataset-loading utilities, and selected paper-evidence summaries are available at \url{https://github.com/wangyi11111111/PhyGuard}. The repository does not include raw traffic datasets or third-party model checkpoints. Reproduction scripts document the exact dataset sources and scenarios used in the experiments.
+The anonymized implementation and reproduction scripts are available at: \url{https://anonymous.4open.science/r/PhyGuard-F1CE}.
 
 \bibliographystyle{elsarticle-num}
 \bibliography{references}

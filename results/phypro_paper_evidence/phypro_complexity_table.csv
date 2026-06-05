@@ -1,0 +1,6 @@
+dataset,nodes,generic_feature_dim,reliability_feature_dim,hidden_dim,extra_trainable_params,benchmark_device,extra_forward_ms_per_batch,batch_shape
+PEMS03,358,8,12,99,23365,cuda,2.5208412170410157,16x12x358x1
+PEMS04,307,8,12,99,23365,cuda,1.933690948486328,16x12x307x1
+PEMS08,170,8,12,99,23365,cuda,0.9929830169677735,16x12x170x1
+PEMS-BAY,325,8,12,99,23365,cuda,2.1115597534179686,16x12x325x1
+METR-LA,207,8,12,99,23365,cuda,1.2054937744140626,16x12x207x1
