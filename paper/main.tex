@@ -16,7 +16,7 @@
 
 \begin{frontmatter}
 
-\title{PhyPro: Learning When Physics Should Promote Correction for Robust Traffic State Reconstruction}
+\title{PhyPro: Physics-Reliability Promoted Correction for Robust Sparse and Disrupted Traffic State Reconstruction}
 
 \author[inst1]{Author Name}
 \affiliation[inst1]{organization={Institution}, city={City}, country={Country}}
@@ -29,16 +29,16 @@
 traffic state reconstruction \sep physics reliability \sep spatiotemporal imputation \sep robust learning
 \end{keyword}
 
-\noindent\textbf{Anonymous code:} \url{https://anonymous.4open.science/r/PhyGuard-F1CE}
+\noindent\textbf{Code link:} \url{https://anonymous.4open.science/r/PhyGuard-F1CE}
 
 \end{frontmatter}
 
 \section{Introduction}
 Reliable traffic state reconstruction is a prerequisite for monitoring, prediction, traffic control, and incident response. In practice, however, road-network observations are sparse and locally unreliable. Sensors may randomly miss measurements, communication links may fail, detectors may remain unavailable for long intervals, and traffic states may deviate from recurrent patterns under incidents or abnormal congestion. These conditions make reconstruction more than a conventional interpolation problem: the model must infer unobserved values while deciding whether a local reconstruction is reliable enough to be modified.
 
-Traffic reconstruction has benefited from both structured statistical priors and deep spatiotemporal modeling. Tensor completion and temporal factorization methods exploit low-rank and temporal regularities in traffic measurements \citep{chen2020nonconvex,chen2021scalable,chen2022latc}. Deep graph and attention models further capture nonlinear temporal dynamics and road-network dependencies, as shown in traffic forecasting and spatiotemporal modeling studies \citep{li2018dcrnn,yu2018stgcn,wu2019graphwavenet,zheng2020gman}. For missing data, recurrent, self-attention, diffusion, and graph neural imputation methods have become strong reconstruction choices \citep{cao2018brits,du2023saits,tashiro2021csdi,cini2022grin}. Recent traffic-oriented imputation models also introduce mask-aware graph repair and low-rank transformer structures \citep{liu2025maginet,liu2024imputeformer}. These methods provide strong backbones, but they mainly answer how to reconstruct a value. They do not directly answer whether a local correction to a strong backbone output is physically reliable.
+Traffic reconstruction has benefited from both structured statistical priors and deep spatiotemporal modeling. The success of graph-based traffic models in forecasting shows that road-network dependencies and nonlinear temporal dynamics can be learned effectively from sensor data \citep{li2018dcrnn,yu2018stgcn,wu2019graphwavenet,zheng2020gman}. Low-rank, temporal, recurrent, attention-based, and mask-aware imputation models extend this idea to incomplete observations. These methods provide strong reconstruction backbones, but they mainly answer how to reconstruct a value. They do not directly answer whether a local correction to a strong backbone output is physically reliable.
 
-Physics-informed learning offers a different source of evidence. The broad idea is to constrain learning by physical residuals or domain equations \citep{raissi2019pinn}. In traffic modeling, physical constraints can represent flow-density-speed consistency, conservation relations, graph smoothness, or macroscopic traffic dynamics \citep{shi2021pidl,tang2024pimlcalibration,wang2024pistgnet}. Such priors are appealing because sparse observations alone may not identify the local traffic state. Yet the same priors can be risky in open road networks. A simplified residual that is meaningful in normal traffic can become unreliable around failed sensors, local incidents, non-periodic congestion, or speed-only datasets without explicit flow-density information. Fixed physics losses therefore suffer from a local physical-misguidance problem: they treat physics as equally trustworthy across all sensors and time steps, even when the physical relation is locally mismatched.
+Physics-informed learning offers a different source of evidence. Physical constraints can represent flow-density-speed consistency, conservation relations, graph smoothness, or macroscopic traffic dynamics. Such priors are appealing because sparse observations alone may not identify the local traffic state. Yet the same priors can be risky in open road networks. A simplified residual that is meaningful in normal traffic can become unreliable around failed sensors, local incidents, non-periodic congestion, or speed-only datasets without explicit flow-density information. Fixed physics losses therefore suffer from a local physical-misguidance problem: they treat physics as equally trustworthy across all sensors and time steps, even when the physical relation is locally mismatched.
 
 This paper targets that gap. We propose \emph{PhyPro}, a physics-reliability promoted correction framework for traffic state reconstruction. Instead of adding a global physics loss to the backbone, PhyPro attaches a lightweight correction module after the backbone prediction. The module learns a generic residual correction, constructs a physics-aligned correction direction from local residual evidence, and estimates whether physics should promote the correction at each sensor and time step. It also suppresses promotion when local failure or conflict evidence suggests that physics may be misleading. This design reframes physics from a globally enforced constraint into a local reliability signal.
 
@@ -52,12 +52,12 @@ The contributions are as follows:
 \section{Related Work}
 
 \subsection{Traffic and Spatiotemporal Imputation}
-Traffic data imputation has long exploited the structured nature of road-network measurements. Low-rank tensor and temporal factorization models recover missing values by assuming that traffic measurements share spatial, temporal, and variable-level dependencies \citep{chen2020nonconvex,chen2021scalable,chen2022latc}. Deep models extend this view by learning nonlinear dependencies from incomplete sequences and graphs. BRITS performs bidirectional recurrent imputation and treats missing values as differentiable variables in temporal state propagation \citep{cao2018brits}. SAITS uses self-attention to model temporal dependencies without recurrent states \citep{du2023saits}. CSDI introduces score-based probabilistic imputation for time series \citep{tashiro2021csdi}, while GRIN uses graph neural networks to fill gaps in multivariate time series \citep{cini2022grin}. For spatiotemporal traffic data, ImputeFormer introduces low-rankness-induced transformers for generalizable imputation, and MagiNet designs a mask-aware graph imputation network for incomplete traffic data \citep{liu2024imputeformer,liu2025maginet}.
+Traffic data imputation has long exploited the structured nature of road-network measurements. Early geo-sensory imputation used spatial proximity, temporal smoothness, and multi-view correlations to recover missing traffic values \citep{yi2016stmvl}. Low-rank tensor and temporal factorization models recover missing values by assuming that traffic measurements share spatial, temporal, and variable-level dependencies \citep{chen2020nonconvex,chen2021scalable,chen2022latc}. Reviews and recent traffic-specific models further show that missingness can arise from random loss, communication interruption, device failure, and non-recurrent traffic patterns, each requiring different evidence for recovery \citep{chan2023trafficreview,shen2023garnn,huang2023stgain,xu2024hstgcn,zhang2024mlgan}. Deep time-series imputation extends this view by learning nonlinear dependencies from incomplete sequences. GRU-D models informative missingness and temporal decay \citep{che2018grud}; GAIN and E2GAN use adversarial objectives for missing-value generation \citep{yoon2018gain,luo2019e2gan}; NAOMI performs multiresolution sequence imputation \citep{liu2019naomi}; BRITS treats missing values as differentiable variables in bidirectional temporal state propagation \citep{cao2018brits}; SAITS uses self-attention to model temporal dependencies without recurrent states \citep{du2023saits}; CSDI and PriSTI introduce diffusion-based probabilistic imputation for temporal and spatiotemporal data \citep{tashiro2021csdi,liu2023pristi}. For traffic-oriented spatiotemporal imputation, GRIN uses graph neural networks to fill multivariate gaps, ImputeFormer introduces low-rankness-induced transformers, and MagiNet designs a mask-aware graph imputation network for incomplete traffic data \citep{cini2022grin,liu2024imputeformer,liu2025maginet}.
 
 These studies provide strong reconstruction cores, and several of them are used as backbones in this work. Their limitation for our problem is not lack of capacity. Rather, they usually produce a completed state directly and do not explicitly separate reconstruction from the decision of whether a local correction is safe. PhyPro is complementary to these models: it operates as a post-backbone correction framework that estimates local reliability before applying a bounded correction.
 
 \subsection{Physics-Informed Traffic Modeling}
-Physics-informed neural networks use physical residuals to regularize learning and have been applied to forward and inverse problems governed by differential equations \citep{raissi2019pinn}. In traffic systems, physics-informed deep learning has incorporated traffic-flow models into state estimation and calibrated macroscopic traffic-flow dynamics \citep{shi2021pidl,tang2024pimlcalibration}. Recent traffic prediction studies also integrate fundamental-diagram learners or filtering mechanisms into spatiotemporal neural networks \citep{wang2024pistgnet}. These methods show that traffic physics can improve data-driven modeling, especially when observations are sparse or noisy.
+Physics-informed neural networks use physical residuals to regularize learning and have been applied to forward and inverse problems governed by differential equations \citep{raissi2019pinn}. In traffic systems, physics-informed deep learning has incorporated traffic-flow models into state estimation, generalized bathtub modeling, and macroscopic traffic-flow calibration \citep{shi2021pidl,yuan2024bathtub,tang2024pimlcalibration}. Recent traffic prediction studies also integrate fundamental-diagram learners or filtering mechanisms into spatiotemporal neural networks \citep{wang2024pistgnet,deshpande2025pigrnn}. Surveys and limitation analyses further emphasize that physics-informed traffic models depend on whether the selected physical law, boundary condition, and observation regime match the data-generating process \citep{di2023pidlsurvey,huang2023pidllimit}. These methods show that traffic physics can improve data-driven modeling, especially when observations are sparse or noisy.
 
 The key issue is how physics is used. Most physics-informed formulations add a fixed or globally scheduled residual loss, which implicitly assumes that the chosen physical relation is valid everywhere. Open traffic networks violate this assumption. Directional upstream-downstream relations can be unavailable, speed-only datasets cannot support full flow-density residuals, and incidents or detector failures can create local states that deviate from simplified physical assumptions. PhyPro therefore does not minimize a global physics loss. It extracts physical residuals as local evidence and lets a reliability-promotion mechanism decide whether the physics-aligned direction should strengthen or suppress a correction.
 
@@ -106,9 +106,9 @@ Figure~\ref{fig:mechanism} summarizes the framework. PhyPro contains three compo
 \end{equation}
 where $\Delta^{g}_{t,i}$ is a data-driven residual correction, $\Delta^{p}_{t,i}$ is a physics-aligned direction, $g_{t,i}$ controls the generic correction, and $\beta_{t,i}$ is the local physics-promotion weight. In this formulation, physics does not directly predict the final value. It supplies a direction and a reliability signal for promoting correction.
 
-\begin{figure}[t]
+\begin{figure}[p]
   \centering
-  \includegraphics[width=\linewidth]{figures/figure_phypro_mechanism.png}
+  \includegraphics[width=\textwidth]{figures/figure_phypro_mechanism.png}
   \caption{Overview of PhyPro. A strong backbone first produces an initial reconstruction. PhyPro then learns a generic residual correction and a physics-aligned direction, while local evidence determines whether physics should promote or suppress the correction.}
   \label{fig:mechanism}
 \end{figure}
@@ -186,7 +186,27 @@ To prevent physics from amplifying abnormal local states, PhyPro applies conflic
   \quad
   C_{t,i}\in[0,1],
 \end{equation}
-where $C_{t,i}$ combines failure score, residual rank, observed-error proxy, and spatial-gap rank. This mechanism is the central difference between PhyPro and a generic adapter. A generic adapter learns how to correct; PhyPro additionally learns when physics should promote that correction and when it should be suppressed.
+where $C_{t,i}$ combines failure score, residual rank, observed-error proxy, and spatial-gap rank. This mechanism is the central difference between PhyPro and a generic adapter. A generic adapter learns how to correct; PhyPro additionally learns when physics should promote that correction and when it should be suppressed. Algorithm~\ref{alg:phypro} gives the local inference rule in the same notation.
+
+\begin{algorithm}[t]
+\caption{Local physics-reliability promoted correction}
+\label{alg:phypro}
+\begin{algorithmic}[1]
+\Require Backbone estimate $X_0$, observation mask $M$, graph $A$, target region $\Omega$, correction bound $b$
+\Ensure Reconstruction $\hat{X}$, gate map $G$, promotion map $B$
+\For{$(t,i)\in\Omega$}
+  \State $\mathbf{z}^{g}_{t,i}\gets [x_{0,t,i}, M_{t,i}, q_{t,i}, d^{graph}_{t,i}, d^{temp}_{t,i}, u_{t,i}]$
+  \State $\mathbf{e}_{t,i}\gets [M_{t,i}, q_{t,i}, f_{t,i}, \rho_{t,i}, u_{t,i}, C_{t,i}]$
+  \State $\Delta^{g}_{t,i}\gets b\,\tanh(f_g(\mathbf{z}^{g}_{t,i}))$
+  \State $\Delta^{p}_{t,i}\gets b\,\tanh(0.6\,d^{graph}_{t,i}+0.4\,d^{temp}_{t,i})$
+  \State $g_{t,i}\gets g_{\min}+(1-g_{\min})\sigma(f_{gate}(\mathbf{e}_{t,i}))$
+  \State $\beta^{raw}_{t,i}\gets\sigma(f_{\beta}(\mathbf{e}_{t,i}))$
+  \State $\beta_{t,i}\gets\beta^{raw}_{t,i}(1-\lambda_c C_{t,i})$
+  \State $\hat{x}_{t,i}\gets x_{0,t,i}+g_{t,i}\Delta^g_{t,i}+\beta_{t,i}\Delta^p_{t,i}$
+\EndFor
+\State \Return $\hat{X},G,B$
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{Training Objective}
 PhyPro is trained on target reconstruction regions using
@@ -216,23 +236,6 @@ The reconstruction term is the mean absolute error on missing or disrupted entri
 \end{equation}
 where $w_{t,i}$ increases with failure and residual-conflict evidence. This term makes the correction conservative in regions where an incorrect update may persist or amplify a local abnormal state.
 
-\begin{algorithm}[t]
-\caption{PhyPro inference}
-\label{alg:phypro}
-\begin{algorithmic}[1]
-\Require Incomplete observation $X^{obs}$, mask $M$, graph $A$, trained backbone $B_{\theta}$
-\State $X_0 \gets B_{\theta}(X^{obs},M,A)$
-\For{each sensor-time pair $(t,i)$}
-  \State Build local evidence $\mathbf{e}_{t,i}$ from mask, temporal gap, failure score, residual rank, and conflict cues
-  \State Compute generic correction $\Delta^g_{t,i}=b\tanh(f_g(\mathbf{z}^{g}_{t,i}))$
-  \State Compute physics direction $\Delta^p_{t,i}=b\tanh(0.6d^{graph}_{t,i}+0.4d^{temp}_{t,i})$
-  \State Estimate correction gate $g_{t,i}$ and promotion weight $\beta_{t,i}$
-  \State $\hat{x}_{t,i}\gets x_{0,t,i}+g_{t,i}\Delta^g_{t,i}+\beta_{t,i}\Delta^p_{t,i}$
-\EndFor
-\State \Return $\hat{X}$ and local reliability/promotion maps
-\end{algorithmic}
-\end{algorithm}
-
 \section{Experiments}
 
 \subsection{Datasets and Disruption Protocols}
@@ -241,11 +244,10 @@ We evaluate PhyPro on five public traffic datasets: PEMS03, PEMS04, PEMS08, PEMS
 We consider three reconstruction protocols. Random missing removes observed entries uniformly and tests sparse point-wise reconstruction. Sensor failure removes selected sensors over the evaluated window and represents persistent detector malfunction. Incident perturbation injects local disrupted traffic states and tests whether the model avoids unreliable local corrections under abnormal dynamics. All main results use three random seeds.
 
 \subsection{Baselines and Backbones}
-PhyPro is attached to four strong and diverse reconstruction backbones: BRITS, SAITS, ImputeFormer, and MagiNet. BRITS represents bidirectional recurrent imputation, SAITS represents self-attention-based temporal imputation, ImputeFormer represents transformer-style masked spatiotemporal imputation, and MagiNet represents mask-aware graph repair. This selection avoids testing only minor variants of one architecture family.
+PhyPro is attached to four strong and diverse reconstruction backbones: BRITS \citep{cao2018brits}, SAITS \citep{du2023saits}, ImputeFormer \citep{liu2024imputeformer}, and MagiNet \citep{liu2025maginet}. BRITS represents bidirectional recurrent imputation, SAITS represents self-attention-based temporal imputation, ImputeFormer represents transformer-style masked spatiotemporal imputation, and MagiNet represents mask-aware graph repair. This selection avoids testing only minor variants of one architecture family.
 
 We report two types of comparisons. The first compares each backbone with the same backbone enhanced by PhyPro. The second compares PhyPro with plug-in baselines under the same backbone outputs: Generic Adapter, Calibration Guard, and Failure/Anomaly Guard. This protocol isolates whether PhyPro improves because of physics-reliability promotion rather than because an additional adapter was added.
 
-\subsection{Metrics and Implementation}
 The primary metric is masked MAE on the target missing or disrupted region:
 \begin{equation}
   \mathrm{MAE}_{\Omega}
@@ -254,7 +256,7 @@ The primary metric is masked MAE on the target missing or disrupted region:
   \sum_{(t,i,c)\in\Omega}
   |\hat{x}_{t,i,c}-x_{t,i,c}|.
 \end{equation}
-RMSE and MAPE are recorded but not used for the main ranking. PhyPro uses 23,365 trainable parameters, correction bound $b=0.20$, gate floor $g_{\min}=0.95$, and conflict coefficient $\lambda_c=0.75$ unless otherwise stated.
+RMSE and MAPE are recorded but not used for the main ranking. Unless otherwise stated, experiments use correction bound $b=0.20$, gate floor $g_{\min}=0.95$, and conflict coefficient $\lambda_c=0.75$.
 
 \subsection{Main Results}
 Table~\ref{tab:main_mae} reports the main paired comparison. PhyPro improves all four backbones on average. Across 180 paired runs, the mean masked MAE decreases from 0.3804 to 0.3441, corresponding to a 10.58\% average reduction. The gain is larger under random missing and incident perturbation than under sensor failure, which agrees with the motivation that physical and graph-temporal evidence is more identifiable in recoverable sparse regions than in persistent node-level absence.
@@ -263,28 +265,30 @@ Table~\ref{tab:main_mae} reports the main paired comparison. PhyPro improves all
 \centering
 \scriptsize
 \setlength{\tabcolsep}{1.8pt}
-\caption{Main masked MAE results. Lower is better. The best result in each row is bolded and the second-best result is underlined. B+PP, IF+PP, M+PP, and S+PP denote BRITS, ImputeFormer, MagiNet, and SAITS enhanced by PhyPro.}
+\caption{Main masked MAE ($\downarrow$) results. Each backbone is compared with the same backbone enhanced by PhyPro. Ours denotes the PhyPro-enhanced variant.}
 \label{tab:main_mae}
 \resizebox{\textwidth}{!}{%
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llcccccccc@{}}
 \toprule
-Dataset & Scenario & BRITS & B+PP & IF & IF+PP & MagiNet & M+PP & SAITS & S+PP \\
+Dataset & Scenario & \multicolumn{2}{c}{BRITS} & \multicolumn{2}{c}{ImputeFormer} & \multicolumn{2}{c}{MagiNet} & \multicolumn{2}{c}{SAITS} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(lr){9-10}
+ & & Base & Ours & Base & Ours & Base & Ours & Base & Ours \\
 \midrule
-METR-LA & Incident & 0.4605 & 0.4235 & 0.3671 & \textbf{0.3455} & 0.3766 & \underline{0.3577} & 0.4725 & 0.4445 \\
-METR-LA & Random & 0.4462 & 0.4080 & 0.3371 & \textbf{0.3181} & 0.3576 & \underline{0.3363} & 0.4575 & 0.4290 \\
-METR-LA & Failure & 0.5643 & 0.5388 & 0.7678 & 0.7067 & 0.7436 & 0.7238 & \underline{0.5014} & \textbf{0.4908} \\
-PEMS-BAY & Incident & 0.4143 & 0.3644 & 0.2878 & \underline{0.2589} & 0.2632 & \textbf{0.2373} & 0.4245 & 0.3740 \\
-PEMS-BAY & Random & 0.4041 & 0.3511 & 0.2785 & 0.2471 & \underline{0.2454} & \textbf{0.2164} & 0.4170 & 0.3617 \\
-PEMS-BAY & Failure & 0.5661 & 0.5508 & 0.7451 & 0.7149 & 0.7281 & 0.7006 & \underline{0.5315} & \textbf{0.5150} \\
-PEMS03 & Incident & 0.2887 & 0.2535 & 0.1832 & \underline{0.1666} & 0.1734 & \textbf{0.1593} & 0.2842 & 0.2506 \\
-PEMS03 & Random & 0.2674 & 0.2309 & 0.1570 & \underline{0.1390} & 0.1501 & \textbf{0.1346} & 0.2639 & 0.2270 \\
-PEMS03 & Failure & 0.5335 & 0.5134 & 0.8446 & 0.7899 & 0.6747 & 0.6691 & \underline{0.4975} & \textbf{0.4838} \\
-PEMS04 & Incident & 0.2145 & 0.1903 & 0.1906 & 0.1755 & \underline{0.1723} & \textbf{0.1634} & 0.2150 & 0.1951 \\
-PEMS04 & Random & 0.1886 & 0.1645 & 0.1663 & \underline{0.1496} & 0.1566 & \textbf{0.1458} & 0.1852 & 0.1657 \\
-PEMS04 & Failure & 0.4528 & \underline{0.4075} & 0.7120 & 0.6347 & 0.5912 & 0.5711 & 0.4150 & \textbf{0.3873} \\
-PEMS08 & Incident & 0.2890 & 0.2699 & 0.1638 & 0.1608 & \underline{0.1494} & \textbf{0.1468} & 0.2985 & 0.2840 \\
-PEMS08 & Random & 0.2784 & 0.2628 & 0.1452 & 0.1417 & \underline{0.1333} & \textbf{0.1300} & 0.2841 & 0.2739 \\
-PEMS08 & Failure & \underline{0.4257} & \textbf{0.4148} & 0.6324 & 0.6115 & 0.5002 & 0.4989 & 0.4356 & 0.4225 \\
+METR-LA & Incident & 0.4605 & \textbf{0.4235} & 0.3671 & \textbf{0.3455} & 0.3766 & \textbf{0.3577} & 0.4725 & \textbf{0.4445} \\
+METR-LA & Random & 0.4462 & \textbf{0.4080} & 0.3371 & \textbf{0.3181} & 0.3576 & \textbf{0.3363} & 0.4575 & \textbf{0.4290} \\
+METR-LA & Failure & 0.5643 & \textbf{0.5388} & 0.7678 & \textbf{0.7067} & 0.7436 & \textbf{0.7238} & 0.5014 & \textbf{0.4908} \\
+PEMS-BAY & Incident & 0.4143 & \textbf{0.3644} & 0.2878 & \textbf{0.2589} & 0.2632 & \textbf{0.2373} & 0.4245 & \textbf{0.3740} \\
+PEMS-BAY & Random & 0.4041 & \textbf{0.3511} & 0.2785 & \textbf{0.2471} & 0.2454 & \textbf{0.2164} & 0.4170 & \textbf{0.3617} \\
+PEMS-BAY & Failure & 0.5661 & \textbf{0.5508} & 0.7451 & \textbf{0.7149} & 0.7281 & \textbf{0.7006} & 0.5315 & \textbf{0.5150} \\
+PEMS03 & Incident & 0.2887 & \textbf{0.2535} & 0.1832 & \textbf{0.1666} & 0.1734 & \textbf{0.1593} & 0.2842 & \textbf{0.2506} \\
+PEMS03 & Random & 0.2674 & \textbf{0.2309} & 0.1570 & \textbf{0.1390} & 0.1501 & \textbf{0.1346} & 0.2639 & \textbf{0.2270} \\
+PEMS03 & Failure & 0.5335 & \textbf{0.5134} & 0.8446 & \textbf{0.7899} & 0.6747 & \textbf{0.6691} & 0.4975 & \textbf{0.4838} \\
+PEMS04 & Incident & 0.2145 & \textbf{0.1903} & 0.1906 & \textbf{0.1755} & 0.1723 & \textbf{0.1634} & 0.2150 & \textbf{0.1951} \\
+PEMS04 & Random & 0.1886 & \textbf{0.1645} & 0.1663 & \textbf{0.1496} & 0.1566 & \textbf{0.1458} & 0.1852 & \textbf{0.1657} \\
+PEMS04 & Failure & 0.4528 & \textbf{0.4075} & 0.7120 & \textbf{0.6347} & 0.5912 & \textbf{0.5711} & 0.4150 & \textbf{0.3873} \\
+PEMS08 & Incident & 0.2890 & \textbf{0.2699} & 0.1638 & \textbf{0.1608} & 0.1494 & \textbf{0.1468} & 0.2985 & \textbf{0.2840} \\
+PEMS08 & Random & 0.2784 & \textbf{0.2628} & 0.1452 & \textbf{0.1417} & 0.1333 & \textbf{0.1300} & 0.2841 & \textbf{0.2739} \\
+PEMS08 & Failure & 0.4257 & \textbf{0.4148} & 0.6324 & \textbf{0.6115} & 0.5002 & \textbf{0.4989} & 0.4356 & \textbf{0.4225} \\
 \bottomrule
 \end{tabular*}
 }
@@ -295,19 +299,20 @@ Table~\ref{tab:plugin} compares PhyPro with other plug-in adapters. Generic Adap
 
 \begin{table}[t]
 \centering
-\caption{Plug-in comparison over 180 paired runs. Values are mean masked MAE. Lower is better.}
+\caption{Plug-in comparison by disruption scenario. Values are masked MAE ($\downarrow$).}
 \label{tab:plugin}
-\begin{tabular}{lcc}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccc}
 \toprule
-Method & Masked MAE & Runs \\
+Setting & Backbone & Generic Adapter & Calibration Guard & Failure/Anomaly Guard & PhyPro (Ours) \\
 \midrule
-Backbone & 0.3804 $\pm$ 0.1881 & 180 \\
-Generic Adapter & 0.3496 $\pm$ 0.1830 & 180 \\
-Calibration Guard & 0.3556 $\pm$ 0.1843 & 180 \\
-Failure/Anomaly Guard & 0.3550 $\pm$ 0.1841 & 180 \\
-PhyPro & \textbf{0.3441 $\pm$ 0.1805} & 180 \\
+Overall & 0.3804 $\pm$ 0.1881 & 0.3496 $\pm$ 0.1830 & 0.3556 $\pm$ 0.1843 & 0.3550 $\pm$ 0.1841 & \textbf{0.3441 $\pm$ 0.1805} \\
+Random missing & 0.2643 & 0.2309 & 0.2375 & 0.2372 & \textbf{0.2261} \\
+Sensor failure & 0.5930 & 0.5661 & 0.5712 & 0.5698 & \textbf{0.5583} \\
+Incident perturbation & 0.2839 & 0.2517 & 0.2582 & 0.2582 & \textbf{0.2479} \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \begin{table}[t]
@@ -331,7 +336,8 @@ Table~\ref{tab:ablation} reports a selected ablation on PEMS08 using SAITS and M
 
 \begin{table}[t]
 \centering
-\caption{Selected ablation results on PEMS08. Internal diagnostic variants are omitted from the main text.}
+\small
+\caption{Selected ablation results on PEMS08. Values are masked MAE ($\downarrow$); internal diagnostic variants are omitted from the main text.}
 \label{tab:ablation}
 \begin{tabular}{lccc}
 \toprule
@@ -339,7 +345,7 @@ Variant & Masked MAE & Gate mean & Promotion mean \\
 \midrule
 Backbone & 0.2988 & -- & -- \\
 Generic correction only & 0.2863 & 1.0000 & -- \\
-Full PhyPro & \textbf{0.2786} & 0.9566 & 0.4872 \\
+Full PhyPro (Ours) & \textbf{0.2786} & 0.9566 & 0.4872 \\
 w/o physics promotion & 0.2789 & 0.9567 & 0.0779 \\
 w/o residual/evidence bank & 0.2975 & 0.9682 & 0.3322 \\
 w/o conflict suppression & 0.2788 & 0.9572 & 0.5500 \\
@@ -370,9 +376,14 @@ Gate floor & Conflict coefficient & Masked MAE & Gate mean & Promotion mean \\
 \subsection{Interpretability Analysis}
 Figure~\ref{fig:case_study} visualizes a representative PEMS-BAY case under random missing. The panels show the initial backbone reconstruction, PhyPro reconstruction, error reduction, learned correction, physics direction, promotion weight, and failure evidence. The example illustrates how PhyPro exposes the mechanism behind the update: the final correction is not a black-box residual, but a combination of a learned correction and a physics-aligned promotion term.
 
-\begin{figure}[t]
+\begin{figure}[p]
   \centering
-  \includegraphics[width=\linewidth]{figures/figure_phypro_case.png}
+  \textbf{(a)} Observation and disruption evidence.\\[-0.2em]
+  \includegraphics[width=\linewidth]{figures/figure_phypro_case_a.png}\\[0.5em]
+  \textbf{(b)} Reconstruction and error reduction.\\[-0.2em]
+  \includegraphics[width=\linewidth]{figures/figure_phypro_case_b.png}\\[0.5em]
+  \textbf{(c)} Correction decomposition and physics promotion.\\[-0.2em]
+  \includegraphics[width=\linewidth]{figures/figure_phypro_case_c.png}
   \caption{Representative PhyPro reconstruction case on PEMS-BAY under random missing with 50\% missingness. PhyPro reduces masked MAE from 0.2457 to 0.2070 in this case.}
   \label{fig:case_study}
 \end{figure}
@@ -416,22 +427,22 @@ Missing rate & Backbone & Generic Adapter & Calibration Guard & Failure/Anomaly 
 \end{table}
 
 \subsection{Complexity Analysis}
-PhyPro is lightweight because it operates on local evidence after the backbone output is produced. Table~\ref{tab:complexity} reports the additional trainable parameters and forward time. The module adds 23,365 parameters and less than 2.6 ms per batch on the tested datasets.
+PhyPro is lightweight because it operates on local evidence after the backbone output is produced. The module adds 23,365 trainable parameters for all datasets. Table~\ref{tab:complexity} reports the extra forward time, which remains below 2.6 ms per batch on the tested graphs.
 
 \begin{table}[t]
 \centering
 \small
-\caption{Complexity overhead of PhyPro. Runtime is extra forward time per batch with shape $16{\times}12{\times}N{\times}1$.}
+\caption{Runtime overhead of PhyPro. Runtime is extra forward time per batch with shape $16{\times}12{\times}N{\times}1$.}
 \label{tab:complexity}
-\begin{tabular}{lccc}
+\begin{tabular}{lcc}
 \toprule
-Dataset & Nodes & Extra params & Extra time (ms) \\
+Dataset & Nodes & Extra time (ms) \\
 \midrule
-PEMS03 & 358 & 23,365 & 2.52 \\
-PEMS04 & 307 & 23,365 & 1.93 \\
-PEMS08 & 170 & 23,365 & 0.99 \\
-PEMS-BAY & 325 & 23,365 & 2.11 \\
-METR-LA & 207 & 23,365 & 1.21 \\
+PEMS03 & 358 & 2.52 \\
+PEMS04 & 307 & 1.93 \\
+PEMS08 & 170 & 0.99 \\
+PEMS-BAY & 325 & 2.11 \\
+METR-LA & 207 & 1.21 \\
 \bottomrule
 \end{tabular}
 \end{table}
