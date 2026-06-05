@@ -38,11 +38,11 @@ def _style() -> None:
         {
             "font.family": "sans-serif",
             "font.sans-serif": ["Arial", "Calibri", "DejaVu Sans"],
-            "font.size": 8,
-            "axes.labelsize": 8,
-            "axes.titlesize": 9,
-            "xtick.labelsize": 7,
-            "ytick.labelsize": 7,
+            "font.size": 10,
+            "axes.labelsize": 10,
+            "axes.titlesize": 11,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
             "axes.spines.top": False,
             "axes.spines.right": False,
             "savefig.dpi": 320,
@@ -275,6 +275,30 @@ def _plot_case(
     fig.savefig(output_dir / "figure_phypro_case.png", bbox_inches="tight", pad_inches=0.03)
     fig.savefig(output_dir / "figure_phypro_case.pdf", bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
+
+    split_specs = [
+        ("a", panels[0:4]),
+        ("b", panels[4:8]),
+        ("c", panels[8:12]),
+    ]
+    for suffix, row_panels in split_specs:
+        row_fig, row_axes = plt.subplots(1, 4, figsize=(7.4, 2.35), constrained_layout=True)
+        for idx, (ax, (label, data, cmap, limits)) in enumerate(zip(row_axes.flat, row_panels)):
+            extent = (0, true.shape[1], data.shape[0], 0)
+            kwargs = {"aspect": "auto", "interpolation": "nearest", "cmap": cmap, "extent": extent}
+            if limits is not None:
+                kwargs.update({"vmin": limits[0], "vmax": limits[1]})
+            im = ax.imshow(data, **kwargs)
+            ax.set_title(label, pad=4)
+            ax.set_xticks([0, true.shape[1] // 2, true.shape[1]])
+            ax.set_yticks([])
+            ax.set_xlabel("Time step")
+            if idx == 0:
+                ax.set_ylabel("Selected sensors")
+            row_fig.colorbar(im, ax=ax, fraction=0.05, pad=0.025)
+        row_fig.savefig(output_dir / f"figure_phypro_case_{suffix}.png", bbox_inches="tight", pad_inches=0.03)
+        row_fig.savefig(output_dir / f"figure_phypro_case_{suffix}.pdf", bbox_inches="tight", pad_inches=0.03)
+        plt.close(row_fig)
 
 
 def main() -> int:

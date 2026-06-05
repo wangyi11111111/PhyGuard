@@ -7,6 +7,7 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{hyperref}
+\hypersetup{hidelinks}
 \renewcommand{\theHfigure}{phyprofig.\arabic{figure}}
 \providecommand{\theHalgorithm}{phyproalg.\arabic{algorithm}}
 
@@ -23,13 +24,16 @@
 
 \begin{abstract}
 \noindent Sparse and disrupted traffic sensing requires models to reconstruct missing states while avoiding harmful local corrections. Strong imputation backbones can exploit temporal and graph dependencies, yet they remain largely data-driven and provide limited evidence about whether a local correction is reliable. Physics-informed methods offer complementary domain knowledge, but fixed or globally weighted physical losses assume that simplified traffic-flow relations are reliable everywhere. This assumption can fail under sensor failures, incident perturbations, non-recurrent congestion, and noisy observations, where enforcing physics may amplify local errors. We propose PhyPro, a lightweight physics-reliability promoted correction framework for robust traffic state reconstruction. Given a backbone reconstruction, PhyPro learns a bounded generic correction and a physics-aligned correction direction, then uses local reliability evidence from masks, temporal gaps, graph-neighborhood deviations, physical residuals, failure scores, and conflict cues to decide when physics should promote or suppress the correction. Thus, physics is not used as a global hard constraint or a direct predictor; it acts as local evidence for reliability-conditioned promotion. Experiments on five public traffic datasets, three disruption protocols, three random seeds, and four reconstruction backbones show that PhyPro reduces masked MAE by 10.58\% over the corresponding backbones and remains significantly better than generic, calibration, and failure-aware plug-in adapters. PhyPro adds only 23,365 trainable parameters and millisecond-level forward overhead, while providing interpretable promotion and conflict maps.
+
+
+
 \end{abstract}
 
 \begin{keyword}
 traffic state reconstruction \sep physics reliability \sep spatiotemporal imputation \sep robust learning
 \end{keyword}
 
-\noindent\textbf{Code link:} \url{https://anonymous.4open.science/r/PhyGuard-F1CE}
+\noindent\textbf{Code link:} \url{https://anonymous.4open.science/r/PhyPRO}
 
 \end{frontmatter}
 
@@ -106,7 +110,7 @@ Figure~\ref{fig:mechanism} summarizes the framework. PhyPro contains three compo
 \end{equation}
 where $\Delta^{g}_{t,i}$ is a data-driven residual correction, $\Delta^{p}_{t,i}$ is a physics-aligned direction, $g_{t,i}$ controls the generic correction, and $\beta_{t,i}$ is the local physics-promotion weight. In this formulation, physics does not directly predict the final value. It supplies a direction and a reliability signal for promoting correction.
 
-\begin{figure}[p]
+\begin{figure}[!htbp]
   \centering
   \includegraphics[width=\textwidth]{figures/figure_phypro_mechanism.png}
   \caption{Overview of PhyPro. A strong backbone first produces an initial reconstruction. PhyPro then learns a generic residual correction and a physics-aligned direction, while local evidence determines whether physics should promote or suppress the correction.}
@@ -246,7 +250,7 @@ We consider three reconstruction protocols. Random missing removes observed entr
 \subsection{Baselines and Backbones}
 PhyPro is attached to four strong and diverse reconstruction backbones: BRITS \citep{cao2018brits}, SAITS \citep{du2023saits}, ImputeFormer \citep{liu2024imputeformer}, and MagiNet \citep{liu2025maginet}. BRITS represents bidirectional recurrent imputation, SAITS represents self-attention-based temporal imputation, ImputeFormer represents transformer-style masked spatiotemporal imputation, and MagiNet represents mask-aware graph repair. This selection avoids testing only minor variants of one architecture family.
 
-We report two types of comparisons. The first compares each backbone with the same backbone enhanced by PhyPro. The second compares PhyPro with plug-in baselines under the same backbone outputs: Generic Adapter, Calibration Guard, and Failure/Anomaly Guard. This protocol isolates whether PhyPro improves because of physics-reliability promotion rather than because an additional adapter was added.
+We report two types of comparisons. The first compares each backbone with the same backbone enhanced by PhyPro. The second compares PhyPro with plug-in baselines under the same backbone outputs: Generic Adapter, Calibration Guard, and Failure/Anomaly Guard. Generic Adapter follows the residual-adapter idea used in parameter-efficient adaptation \citep{houlsby2019adapter}; Calibration Guard follows confidence calibration \citep{guo2017calibration}; and Failure/Anomaly Guard follows failure detection and selective prediction principles \citep{hendrycks2017baseline,geifman2019selectivenet}. This protocol isolates whether PhyPro improves because of physics-reliability promotion rather than because an additional adapter was added.
 
 The primary metric is masked MAE on the target missing or disrupted region:
 \begin{equation}
@@ -261,7 +265,7 @@ RMSE and MAPE are recorded but not used for the main ranking. Unless otherwise s
 \subsection{Main Results}
 Table~\ref{tab:main_mae} reports the main paired comparison. PhyPro improves all four backbones on average. Across 180 paired runs, the mean masked MAE decreases from 0.3804 to 0.3441, corresponding to a 10.58\% average reduction. The gain is larger under random missing and incident perturbation than under sensor failure, which agrees with the motivation that physical and graph-temporal evidence is more identifiable in recoverable sparse regions than in persistent node-level absence.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \scriptsize
 \setlength{\tabcolsep}{1.8pt}
@@ -272,7 +276,7 @@ Table~\ref{tab:main_mae} reports the main paired comparison. PhyPro improves all
 \toprule
 Dataset & Scenario & \multicolumn{2}{c}{BRITS} & \multicolumn{2}{c}{ImputeFormer} & \multicolumn{2}{c}{MagiNet} & \multicolumn{2}{c}{SAITS} \\
 \cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(lr){9-10}
- & & Base & Ours & Base & Ours & Base & Ours & Base & Ours \\
+ & & Base $\downarrow$ & Ours $\downarrow$ & Base $\downarrow$ & Ours $\downarrow$ & Base $\downarrow$ & Ours $\downarrow$ & Base $\downarrow$ & Ours $\downarrow$ \\
 \midrule
 METR-LA & Incident & 0.4605 & \textbf{0.4235} & 0.3671 & \textbf{0.3455} & 0.3766 & \textbf{0.3577} & 0.4725 & \textbf{0.4445} \\
 METR-LA & Random & 0.4462 & \textbf{0.4080} & 0.3371 & \textbf{0.3181} & 0.3576 & \textbf{0.3363} & 0.4575 & \textbf{0.4290} \\
@@ -297,14 +301,14 @@ PEMS08 & Failure & 0.4257 & \textbf{0.4148} & 0.6324 & \textbf{0.6115} & 0.5002 
 \subsection{Plug-in Comparison and Significance}
 Table~\ref{tab:plugin} compares PhyPro with other plug-in adapters. Generic Adapter already improves the backbone by learning a data-driven residual correction. PhyPro further improves over it by adding physics-reliability promotion and conflict suppression. Paired tests in Table~\ref{tab:significance} show that the improvements are statistically stable across matched dataset, scenario, seed, and backbone settings.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Plug-in comparison by disruption scenario. Values are masked MAE ($\downarrow$).}
 \label{tab:plugin}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{lccccc}
 \toprule
-Setting & Backbone & Generic Adapter & Calibration Guard & Failure/Anomaly Guard & PhyPro (Ours) \\
+Setting & Backbone $\downarrow$ & Generic Adapter $\downarrow$ & Calibration Guard $\downarrow$ & Failure/Anomaly Guard $\downarrow$ & PhyPro (Ours) $\downarrow$ \\
 \midrule
 Overall & 0.3804 $\pm$ 0.1881 & 0.3496 $\pm$ 0.1830 & 0.3556 $\pm$ 0.1843 & 0.3550 $\pm$ 0.1841 & \textbf{0.3441 $\pm$ 0.1805} \\
 Random missing & 0.2643 & 0.2309 & 0.2375 & 0.2372 & \textbf{0.2261} \\
@@ -315,15 +319,15 @@ Incident perturbation & 0.2839 & 0.2517 & 0.2582 & 0.2582 & \textbf{0.2479} \\
 }
 \end{table}
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Paired significance tests for PhyPro. Comparisons use matched dataset, scenario, seed, and backbone settings.}
 \label{tab:significance}
 \begin{tabular}{lccc}
 \toprule
-Comparison & Mean improvement & Paired $t$-test $p$ & Wilcoxon $p$ \\
+Comparison & Mean improvement $\uparrow$ & Paired $t$-test $p$ $\downarrow$ & Wilcoxon $p$ $\downarrow$ \\
 \midrule
-PhyPro vs Backbone & 10.58\% & $2.29{\times}10^{-54}$ & $2.73{\times}10^{-31}$ \\
+PhyPro vs Backbone & \textbf{10.58\%} & \textbf{$2.29{\times}10^{-54}$} & \textbf{$2.73{\times}10^{-31}$} \\
 PhyPro vs Generic Adapter & 1.58\% & $1.01{\times}10^{-21}$ & $7.02{\times}10^{-28}$ \\
 PhyPro vs Calibration Guard & 3.46\% & $3.12{\times}10^{-38}$ & $1.09{\times}10^{-30}$ \\
 PhyPro vs Failure/Anomaly Guard & 3.29\% & $8.13{\times}10^{-36}$ & $1.33{\times}10^{-30}$ \\
@@ -334,14 +338,14 @@ PhyPro vs Failure/Anomaly Guard & 3.29\% & $8.13{\times}10^{-36}$ & $1.33{\times
 \subsection{Ablation Study}
 Table~\ref{tab:ablation} reports a selected ablation on PEMS08 using SAITS and MagiNet over three scenarios and three seeds. The residual/evidence bank is the most important component: removing it brings the model close to the backbone. Generic correction alone is helpful, but full PhyPro achieves lower MAE by adding physics-reliability promotion. Conflict and failure terms have smaller average effects because their benefit is scenario-dependent, especially under sensor failure and incident-like regions.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \small
 \caption{Selected ablation results on PEMS08. Values are masked MAE ($\downarrow$); internal diagnostic variants are omitted from the main text.}
 \label{tab:ablation}
 \begin{tabular}{lccc}
 \toprule
-Variant & Masked MAE & Gate mean & Promotion mean \\
+Variant & Masked MAE $\downarrow$ & Gate mean $\uparrow$ & Promotion mean $\uparrow$ \\
 \midrule
 Backbone & 0.2988 & -- & -- \\
 Generic correction only & 0.2863 & 1.0000 & -- \\
@@ -357,13 +361,13 @@ w/o failure evidence & 0.2786 & 0.9568 & 0.5230 \\
 \subsection{Parameter Sensitivity}
 Table~\ref{tab:param_sensitivity} reports a small sensitivity check for the gate floor and conflict coefficient. The table is used only to justify the final default configuration. The best setting among the tested pairs is $g_{\min}=0.95$ and $\lambda_c=0.75$.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \caption{Parameter sensitivity for the final PhyPro configuration.}
 \label{tab:param_sensitivity}
 \begin{tabular}{ccccc}
 \toprule
-Gate floor & Conflict coefficient & Masked MAE & Gate mean & Promotion mean \\
+Gate floor & Conflict coefficient & Masked MAE $\downarrow$ & Gate mean $\uparrow$ & Promotion mean $\uparrow$ \\
 \midrule
 0.95 & 0.75 & \textbf{0.3143} & 0.9730 & 0.4252 \\
 0.90 & 0.50 & 0.3170 & 0.9461 & 0.4597 \\
@@ -374,30 +378,39 @@ Gate floor & Conflict coefficient & Masked MAE & Gate mean & Promotion mean \\
 \end{table}
 
 \subsection{Interpretability Analysis}
-Figure~\ref{fig:case_study} visualizes a representative PEMS-BAY case under random missing. The panels show the initial backbone reconstruction, PhyPro reconstruction, error reduction, learned correction, physics direction, promotion weight, and failure evidence. The example illustrates how PhyPro exposes the mechanism behind the update: the final correction is not a black-box residual, but a combination of a learned correction and a physics-aligned promotion term.
+Figures~\ref{fig:case_obs}--\ref{fig:case_corr} visualize a representative PEMS-BAY case under random missing. The panels show the observation pattern, initial backbone reconstruction, PhyPro reconstruction, error reduction, learned correction, physics direction, promotion weight, and failure evidence. The example illustrates how PhyPro exposes the mechanism behind the update: the final correction is not a black-box residual, but a combination of a learned correction and a physics-aligned promotion term.
 
-\begin{figure}[p]
+\begin{figure}[!htbp]
   \centering
-  \textbf{(a)} Observation and disruption evidence.\\[-0.2em]
-  \includegraphics[width=\linewidth]{figures/figure_phypro_case_a.png}\\[0.5em]
-  \textbf{(b)} Reconstruction and error reduction.\\[-0.2em]
-  \includegraphics[width=\linewidth]{figures/figure_phypro_case_b.png}\\[0.5em]
-  \textbf{(c)} Correction decomposition and physics promotion.\\[-0.2em]
-  \includegraphics[width=\linewidth]{figures/figure_phypro_case_c.png}
-  \caption{Representative PhyPro reconstruction case on PEMS-BAY under random missing with 50\% missingness. PhyPro reduces masked MAE from 0.2457 to 0.2070 in this case.}
-  \label{fig:case_study}
+  \includegraphics[width=\textwidth]{figures/figure_phypro_case_a.png}
+  \caption{Representative PhyPro reconstruction case on PEMS-BAY under random missing with 50\% missingness: observation and disruption evidence.}
+  \label{fig:case_obs}
 \end{figure}
 
-\begin{table}[t]
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{figures/figure_phypro_case_b.png}
+  \caption{Representative PhyPro reconstruction case: initial reconstruction, PhyPro reconstruction, and error reduction. PhyPro reduces masked MAE from 0.2457 to 0.2070 in this case.}
+  \label{fig:case_recon}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{figures/figure_phypro_case_c.png}
+  \caption{Representative PhyPro reconstruction case: learned correction, physics direction, promotion weight, and failure evidence.}
+  \label{fig:case_corr}
+\end{figure}
+
+\begin{table}[!htbp]
 \centering
 \caption{Region-level mechanism statistics. The table reports mechanism variables only and does not repeat main-table gains.}
 \label{tab:interpretability}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{lccccc}
 \toprule
-Region & Masked MAE & Reliability gate & Promotion mean & $|\Delta_g|$ mean & Failure score \\
+Region & Masked MAE $\downarrow$ & Reliability gate $\uparrow$ & Promotion mean $\uparrow$ & $|\Delta_g|$ mean $\downarrow$ & Failure score $\uparrow$ \\
 \midrule
-Random missing & 0.2261 & 0.9503 & 0.5264 & 0.0757 & 0.0764 \\
+Random missing & \textbf{0.2261} & 0.9503 & 0.5264 & \textbf{0.0757} & 0.0764 \\
 Sensor failure & 0.5583 & 0.9545 & 0.5512 & 0.1185 & 0.7825 \\
 Incident/disrupted & 0.2479 & 0.9503 & 0.5233 & 0.0759 & 0.0764 \\
 \bottomrule
@@ -408,7 +421,7 @@ Incident/disrupted & 0.2479 & 0.9503 & 0.5233 & 0.0759 & 0.0764 \\
 \subsection{Robustness to Missing Rates}
 Table~\ref{tab:missing_rate} reports a quick missing-rate robustness check on PEMS08, PEMS-BAY, and METR-LA using SAITS and MagiNet. PhyPro remains the best plug-in across 30\%, 50\%, and 70\% random missing rates. The margin decreases at 70\% missingness, which is expected because both data-driven evidence and physics-aligned directions become less identifiable under extreme sparsity.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \small
 \caption{Missing-rate robustness under random missing protocols.}
@@ -416,7 +429,7 @@ Table~\ref{tab:missing_rate} reports a quick missing-rate robustness check on PE
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{lccccc}
 \toprule
-Missing rate & Backbone & Generic Adapter & Calibration Guard & Failure/Anomaly Guard & PhyPro \\
+Missing rate & Backbone $\downarrow$ & Generic Adapter $\downarrow$ & Calibration Guard $\downarrow$ & Failure/Anomaly Guard $\downarrow$ & PhyPro $\downarrow$ \\
 \midrule
 30\% & 0.3173 $\pm$ 0.1124 & 0.2960 $\pm$ 0.1020 & 0.3019 $\pm$ 0.1050 & 0.3051 $\pm$ 0.1072 & \textbf{0.2815 $\pm$ 0.0974} \\
 50\% & 0.3317 $\pm$ 0.1140 & 0.3097 $\pm$ 0.1035 & 0.3147 $\pm$ 0.1065 & 0.3160 $\pm$ 0.1078 & \textbf{0.2988 $\pm$ 0.1002} \\
@@ -429,18 +442,18 @@ Missing rate & Backbone & Generic Adapter & Calibration Guard & Failure/Anomaly 
 \subsection{Complexity Analysis}
 PhyPro is lightweight because it operates on local evidence after the backbone output is produced. The module adds 23,365 trainable parameters for all datasets. Table~\ref{tab:complexity} reports the extra forward time, which remains below 2.6 ms per batch on the tested graphs.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \small
 \caption{Runtime overhead of PhyPro. Runtime is extra forward time per batch with shape $16{\times}12{\times}N{\times}1$.}
 \label{tab:complexity}
 \begin{tabular}{lcc}
 \toprule
-Dataset & Nodes & Extra time (ms) \\
+Dataset & Nodes & Extra time (ms) $\downarrow$ \\
 \midrule
 PEMS03 & 358 & 2.52 \\
 PEMS04 & 307 & 1.93 \\
-PEMS08 & 170 & 0.99 \\
+PEMS08 & 170 & \textbf{0.99} \\
 PEMS-BAY & 325 & 2.11 \\
 METR-LA & 207 & 1.21 \\
 \bottomrule
@@ -463,7 +476,7 @@ Experiments on five public datasets, three disruption protocols, three random se
 The experiments use public traffic benchmark datasets. PEMS03, PEMS04, and PEMS08 are loaded from public PEMS benchmark mirrors, PEMS-BAY is loaded from the Hugging Face dataset \texttt{MintBruce/SkyTraffic}, and METR-LA is loaded from the Hugging Face dataset \texttt{witgaw/METR-LA}. The repository documents the exact loaders and preprocessing scripts used in the experiments. Raw datasets are not redistributed by this manuscript.
 
 \section*{Code Availability}
-The anonymized implementation and reproduction scripts are available at: \url{https://anonymous.4open.science/r/PhyGuard-F1CE}.
+The anonymized implementation and reproduction scripts are available at: \url{https://anonymous.4open.science/r/PhyPRO}.
 
 \bibliographystyle{elsarticle-num}
 \bibliography{references}
