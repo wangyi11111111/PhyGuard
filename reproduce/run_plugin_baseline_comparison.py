@@ -43,6 +43,10 @@ PLUGIN_FEATURES = {
     # Same inputs as GenericAdapter but with a wider correction network to
     # roughly match the parameter budget of the full physics-promotion module.
     "GenericAdapterMatched": [0, 1, 5, 6, 7, 8, 9, 10],
+    # DoRA-style residual adapter. It uses the same generic evidence as the
+    # ordinary residual adapter, but decomposes the update into a learned
+    # direction and magnitude. No physics or failure evidence is exposed.
+    "DoRAAdapter": [0, 1, 5, 6, 7, 8, 9, 10],
     # A calibrated adapter with a learned gate. It uses ordinary temporal and
     # mask evidence, but no physics residual and no explicit failure score.
     "CalibrationGuard": [0, 1, 5, 6, 7, 8, 9, 10],
@@ -87,6 +91,43 @@ class ResidualPlugin(nn.Module):
         delta = torch.tanh(self.delta(features)) * self.correction_clip
         gate = torch.sigmoid(self.gate(features)) if self.use_gate else torch.ones_like(delta)
         return base + gate * delta, gate, delta
+
+
+class DoRAResidualPlugin(nn.Module):
+    """Weight-decomposed residual adapter inspired by DoRA.
+
+    This is a plug-in baseline, not part of PhyPro. It keeps the same evidence
+    as GenericAdapter and tests whether a stronger parameter-efficient adapter
+    explains the gains without physics reliability promotion.
+    """
+
+    def __init__(
+        self,
+        feature_dim: int,
+        *,
+        hidden_dim: int = 64,
+        rank: int = 4,
+        correction_clip: float = 0.20,
+    ):
+        super().__init__()
+        self.correction_clip = float(correction_clip)
+        self.down = nn.Linear(feature_dim, rank, bias=False)
+        self.up = nn.Linear(rank, hidden_dim, bias=False)
+        self.magnitude = nn.Parameter(torch.ones(hidden_dim))
+        self.out = nn.Sequential(
+            nn.GELU(),
+            nn.Dropout(0.05),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1),
+        )
+
+    def forward(self, features: torch.Tensor, base: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        direction = F.normalize(self.up(self.down(features)), p=2, dim=-1, eps=1e-6)
+        adapted = direction * self.magnitude
+        delta = torch.tanh(self.out(adapted)) * self.correction_clip
+        gate = torch.ones_like(delta)
+        return base + delta, gate, delta
 
 
 class ReliabilityConditionedPlugin(nn.Module):
@@ -209,6 +250,12 @@ def _train_baseline_plugin(
         harm_weight = 0.0
         gate_weight = 0.0
         hidden_dim = 99
+    elif plugin == "DoRAAdapter":
+        weight = torch.ones_like(failure)
+        use_gate = False
+        harm_weight = 0.0
+        gate_weight = 0.0
+        hidden_dim = 64
     elif plugin == "CalibrationGuard":
         weight = torch.ones_like(failure)
         use_gate = True
@@ -224,7 +271,10 @@ def _train_baseline_plugin(
     else:
         raise ValueError(f"unknown plugin: {plugin}")
 
-    model = ResidualPlugin(x.shape[-1], hidden_dim=hidden_dim, correction_clip=correction_clip, use_gate=use_gate)
+    if plugin == "DoRAAdapter":
+        model = DoRAResidualPlugin(x.shape[-1], hidden_dim=hidden_dim, correction_clip=correction_clip)
+    else:
+        model = ResidualPlugin(x.shape[-1], hidden_dim=hidden_dim, correction_clip=correction_clip, use_gate=use_gate)
     opt = torch.optim.AdamW(model.parameters(), lr=8e-4, weight_decay=2e-4)
     generator = torch.Generator().manual_seed(seed + 9302)
     batch_size = 32768
@@ -464,7 +514,7 @@ def _write_outputs(output_dir: Path, rows: list[dict], protocol: dict) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Compare PhyGuard with plug-in baselines under the same backbone outputs.")
+    parser = argparse.ArgumentParser(description="Compare PhyPro with plug-in baselines under the same backbone outputs.")
     parser.add_argument("--datasets", nargs="+", default=["PEMS03", "PEMS04", "PEMS08", "PEMS-BAY", "METR-LA"])
     parser.add_argument("--scenarios", nargs="+", default=["random_missing_50", "sensor_failure_30", "incident_perturbation"])
     parser.add_argument("--seeds", nargs="+", type=int, default=[1])
@@ -475,6 +525,13 @@ def main() -> int:
     parser.add_argument("--correction-clip", type=float, default=0.20)
     parser.add_argument("--phypro-gate-floor", type=float, default=0.95)
     parser.add_argument("--phypro-conflict-coef", type=float, default=0.75)
+    parser.add_argument(
+        "--plugins",
+        nargs="+",
+        default=["GenericAdapter", "DoRAAdapter", "CalibrationGuard", "FailureAnomalyGuard"],
+        help="Plug-in baselines to compare before PhyPro.",
+    )
+    parser.add_argument("--skip-phypro", action="store_true", help="Only run backbone and requested plug-in baselines.")
     parser.add_argument("--include-matched-generic", action="store_true", help="Include the wider generic adapter as a diagnostic baseline.")
     parser.add_argument("--train-samples", type=int, default=64)
     parser.add_argument("--val-samples", type=int, default=16)
@@ -566,7 +623,7 @@ def main() -> int:
                         }
                     )
 
-                    plugin_baselines = ["GenericAdapter", "CalibrationGuard", "FailureAnomalyGuard"]
+                    plugin_baselines = list(args.plugins)
                     if args.include_matched_generic:
                         plugin_baselines.insert(1, "GenericAdapterMatched")
                     for plugin in plugin_baselines:
@@ -596,60 +653,61 @@ def main() -> int:
                             }
                         )
 
-                    phyguard_pred, phyguard_stats = _train_plugin(
-                        train,
-                        val,
-                        test,
-                        adj,
-                        base_train,
-                        base_val,
-                        base_test,
-                        epochs=args.plugin_epochs,
-                        seed=seed,
-                        correction_clip=args.correction_clip,
-                        harm_mode="failure_aware_soft",
-                        fixed_harm_coef=1.0,
-                    )
-                    rows.append(
-                        {
-                            "dataset": dataset,
-                            "seed": seed,
-                            "scenario": scenario,
-                            "backbone": base_name,
-                            "plugin": "PhyGuard",
-                            "model": f"{base_name}+PhyGuard",
-                            **compute_metrics(phyguard_pred, test_x, 1.0 - test_mask),
-                            **phyguard_stats,
-                        }
-                    )
-                    rc_pred, rc_stats = _train_reliability_conditioned_plugin(
-                        train,
-                        val,
-                        test,
-                        adj,
-                        base_train,
-                        base_val,
-                        base_test,
-                        epochs=args.plugin_epochs,
-                        seed=seed,
-                        correction_clip=args.correction_clip,
-                        gate_floor=args.phypro_gate_floor,
-                        conflict_coef=args.phypro_conflict_coef,
-                    )
-                    rows.append(
-                        {
-                            "dataset": dataset,
-                            "seed": seed,
-                            "scenario": scenario,
-                            "backbone": base_name,
-                            "plugin": "PhyGuardRC",
-                            "model": f"{base_name}+PhyGuardRC",
-                            "phypro_gate_floor": args.phypro_gate_floor,
-                            "phypro_conflict_coef": args.phypro_conflict_coef,
-                            **compute_metrics(rc_pred, test_x, 1.0 - test_mask),
-                            **rc_stats,
-                        }
-                    )
+                    if not args.skip_phypro:
+                        phyguard_pred, phyguard_stats = _train_plugin(
+                            train,
+                            val,
+                            test,
+                            adj,
+                            base_train,
+                            base_val,
+                            base_test,
+                            epochs=args.plugin_epochs,
+                            seed=seed,
+                            correction_clip=args.correction_clip,
+                            harm_mode="failure_aware_soft",
+                            fixed_harm_coef=1.0,
+                        )
+                        rows.append(
+                            {
+                                "dataset": dataset,
+                                "seed": seed,
+                                "scenario": scenario,
+                                "backbone": base_name,
+                                "plugin": "PhyGuard",
+                                "model": f"{base_name}+PhyGuard",
+                                **compute_metrics(phyguard_pred, test_x, 1.0 - test_mask),
+                                **phyguard_stats,
+                            }
+                        )
+                        rc_pred, rc_stats = _train_reliability_conditioned_plugin(
+                            train,
+                            val,
+                            test,
+                            adj,
+                            base_train,
+                            base_val,
+                            base_test,
+                            epochs=args.plugin_epochs,
+                            seed=seed,
+                            correction_clip=args.correction_clip,
+                            gate_floor=args.phypro_gate_floor,
+                            conflict_coef=args.phypro_conflict_coef,
+                        )
+                        rows.append(
+                            {
+                                "dataset": dataset,
+                                "seed": seed,
+                                "scenario": scenario,
+                                "backbone": base_name,
+                                "plugin": "PhyGuardRC",
+                                "model": f"{base_name}+PhyGuardRC",
+                                "phypro_gate_floor": args.phypro_gate_floor,
+                                "phypro_conflict_coef": args.phypro_conflict_coef,
+                                **compute_metrics(rc_pred, test_x, 1.0 - test_mask),
+                                **rc_stats,
+                            }
+                        )
                     _write_outputs(output_dir, rows, {**vars(args), "metadata": metadata})
 
     _write_outputs(output_dir, rows, {**vars(args), "metadata": metadata})

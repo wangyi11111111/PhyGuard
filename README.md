@@ -1,17 +1,18 @@
 # PhyPro
 
 PhyPro is a lightweight plug-in framework for robust traffic state
-reconstruction under sparse and disrupted sensing. It is developed for the
-paper:
+reconstruction under sparse and disrupted sensing.
+
+Paper title:
 
 > **PhyPro: Physics-Reliability Promoted Correction for Robust Sparse and
 > Disrupted Traffic State Reconstruction**
 
-The central idea is to use physics as local reliability and promotion evidence,
-not as a fixed global loss. Given a reconstruction backbone output, PhyPro
-learns a bounded generic correction, constructs a physics-aligned correction
-direction, and uses local reliability, failure, and conflict evidence to decide
-where physics should promote or suppress the correction.
+PhyPro uses physics as local reliability and promotion evidence, not as a fixed
+global loss. Given a reconstruction backbone output, it learns a bounded generic
+correction, constructs a physics-aligned correction direction, and uses local
+reliability, failure, residual, and conflict evidence to decide where physics
+should promote or suppress the correction.
 
 Code link:
 
@@ -19,9 +20,24 @@ Code link:
 https://anonymous.4open.science/r/PhyPRO
 ```
 
-## Method
+## Citation
 
-PhyPro applies the following correction form:
+If you use this repository, method, or experimental protocol, please cite our
+work:
+
+```bibtex
+@misc{wang2026phypro,
+  title        = {PhyPro: Physics-Reliability Promoted Correction for Robust Sparse and Disrupted Traffic State Reconstruction},
+  author       = {Wang, Yi and Shang, Wenqian and Yi, Tong and Zhu, Haibin},
+  year         = {2026},
+  note         = {Manuscript under review},
+  howpublished = {\url{https://anonymous.4open.science/r/PhyPRO}}
+}
+```
+
+## Method at a Glance
+
+PhyPro applies the following local correction:
 
 ```text
 x_hat = x0 + g(i,t) * Delta_g(i,t) + beta(i,t) * Delta_p(i,t)
@@ -30,54 +46,49 @@ x_hat = x0 + g(i,t) * Delta_g(i,t) + beta(i,t) * Delta_p(i,t)
 where:
 
 - `x0` is the reconstruction from a strong backbone.
-- `Delta_g` is a data-driven residual proposal.
+- `Delta_g` is a data-driven residual correction proposal.
 - `Delta_p` is a physics-aligned direction from graph and temporal residuals.
 - `g(i,t)` controls the generic correction.
-- `beta(i,t)` controls whether physics promotes the correction.
+- `beta(i,t)` decides whether physics should promote or suppress the correction.
 
 Physics is therefore not a direct predictor and not a globally enforced
-constraint. It supplies a local direction and a reliability signal.
-
-## Evidence Summary
-
-The final paper evidence evaluates PhyPro on:
-
-- 5 datasets: `PEMS03`, `PEMS04`, `PEMS08`, `PEMS-BAY`, `METR-LA`
-- 3 scenarios: `random_missing_50`, `sensor_failure_30`,
-  `incident_perturbation`
-- 3 seeds
-- 4 backbones: `BRITS`, `SAITS`, `ImputeFormer`, `MagiNet`
-
-Across 180 paired runs, PhyPro reduces masked MAE from `0.3804` to `0.3441`,
-an average improvement of `10.58%` over the corresponding backbones.
-
-Compared with plug-in baselines, PhyPro improves over:
-
-- `Generic Adapter`: `1.58%`
-- `Calibration Guard`: `3.46%`
-- `Failure/Anomaly Guard`: `3.29%`
-
-The paired tests are significant under both paired t-test and Wilcoxon tests.
+constraint. It supplies local direction and reliability evidence.
 
 ## Paper Figures
 
+### Figure 1: Mechanism
+
 ![PhyPro mechanism](paper/figures/figure_phypro_mechanism.png)
 
-**Figure 1.** PhyPro treats physics as local reliability and promotion evidence
-after a strong reconstruction backbone, rather than as a fixed global physics
-loss.
+PhyPro attaches a local correction module after a strong reconstruction
+backbone. The module combines generic residual correction, physics-aligned
+direction, and reliability-conditioned promotion.
+
+### Figure 2(a): Observation and Disruption Evidence
 
 ![PhyPro visual case A](paper/figures/figure_phypro_case_a.png)
 
+### Figure 2(b): Reconstruction and Error Reduction
+
 ![PhyPro visual case B](paper/figures/figure_phypro_case_b.png)
+
+### Figure 2(c): Correction, Physics Direction, and Reliability Evidence
 
 ![PhyPro visual case C](paper/figures/figure_phypro_case_c.png)
 
-**Figure 2.** Representative PEMS-BAY random-missing case. The panels show the
-observation pattern, reconstruction error reduction, learned correction,
-physics direction, promotion weight, and failure evidence.
+## Experimental Scope
 
-## Main Tables
+The final manuscript evidence evaluates PhyPro on:
+
+- 5 datasets: `PEMS03`, `PEMS04`, `PEMS08`, `PEMS-BAY`, `METR-LA`
+- 3 scenarios: `random_missing_50`, `sensor_failure_30`, `incident_perturbation`
+- 3 random seeds
+- 4 backbones: `BRITS`, `SAITS`, `ImputeFormer`, `MagiNet`
+
+Across 180 paired runs, PhyPro reduces masked MAE from `0.3804` to `0.3441`,
+an average reduction of `10.58%` over the corresponding backbones.
+
+## Key Tables
 
 ### Backbone + PhyPro
 
@@ -90,12 +101,44 @@ physics direction, promotion weight, and failure evidence.
 
 ### Plug-in Comparison
 
-| Setting | Backbone ↓ | Generic Adapter ↓ | Calibration Guard ↓ | Failure/Anomaly Guard ↓ | PhyPro ↓ |
+| Method | Overall ↓ | Random ↓ | Failure ↓ | Incident ↓ |
+| --- | ---: | ---: | ---: | ---: |
+| Backbone | 0.3804 ± 0.1881 | 0.2643 | 0.5930 | 0.2839 |
+| Generic Adapter | 0.3496 ± 0.1830 | 0.2309 | 0.5661 | 0.2517 |
+| DoRA Adapter | 0.3528 ± 0.1800 | 0.2360 | 0.5642 | 0.2583 |
+| Calibration Guard | 0.3556 ± 0.1843 | 0.2375 | 0.5712 | 0.2582 |
+| Failure/Anomaly Guard | 0.3550 ± 0.1841 | 0.2372 | 0.5698 | 0.2582 |
+| PhyPro | **0.3441 ± 0.1805** | **0.2261** | **0.5583** | **0.2479** |
+
+### Paired Significance Tests
+
+| Comparison | Mean improvement ↑ | Paired t-test p ↓ | Wilcoxon p ↓ |
+| --- | ---: | ---: | ---: |
+| PhyPro vs Backbone | **10.58%** | **2.29e-54** | **2.73e-31** |
+| PhyPro vs Generic Adapter | 1.58% | 1.01e-21 | 7.02e-28 |
+| PhyPro vs DoRA Adapter | 2.47% | 6.17e-12 | 6.81e-17 |
+| PhyPro vs Calibration Guard | 3.46% | 3.12e-38 | 1.09e-30 |
+| PhyPro vs Failure/Anomaly Guard | 3.29% | 8.13e-36 | 1.33e-30 |
+
+### Selected Ablation on PEMS08
+
+| Variant | Masked MAE ↓ | Gate mean ↑ | Promotion mean ↑ |
+| --- | ---: | ---: | ---: |
+| Backbone | 0.2988 | -- | -- |
+| Generic correction only | 0.2863 | 1.0000 | -- |
+| Full PhyPro | **0.2786** | 0.9566 | 0.4872 |
+| w/o physics promotion | 0.2789 | 0.9567 | 0.0779 |
+| w/o residual/evidence bank | 0.2975 | 0.9682 | 0.3322 |
+| w/o conflict suppression | 0.2788 | 0.9572 | 0.5500 |
+| w/o failure evidence | 0.2786 | 0.9568 | 0.5230 |
+
+### Region-level Mechanism Statistics
+
+| Region | Masked MAE ↓ | Reliability gate ↑ | Promotion mean ↑ | \|Delta_g\| mean ↓ | Failure score ↑ |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Overall | 0.3804 ± 0.1881 | 0.3496 ± 0.1830 | 0.3556 ± 0.1843 | 0.3550 ± 0.1841 | **0.3441 ± 0.1805** |
-| Random missing | 0.2643 | 0.2309 | 0.2375 | 0.2372 | **0.2261** |
-| Sensor failure | 0.5930 | 0.5661 | 0.5712 | 0.5698 | **0.5583** |
-| Incident perturbation | 0.2839 | 0.2517 | 0.2582 | 0.2582 | **0.2479** |
+| Random missing | **0.2261** | 0.9503 | 0.5264 | **0.0757** | 0.0764 |
+| Sensor failure | 0.5583 | 0.9545 | 0.5512 | 0.1185 | 0.7825 |
+| Incident/disrupted | 0.2479 | 0.9503 | 0.5233 | 0.0759 | 0.0764 |
 
 ### Missing-rate Robustness
 
@@ -117,35 +160,33 @@ PhyPro adds `23,365` trainable parameters for all datasets.
 | PEMS-BAY | 325 | 2.11 |
 | METR-LA | 207 | 1.21 |
 
-## Lightweight Overhead
-
-PhyPro adds `23,365` trainable parameters. The measured extra forward time is
-about `0.99-2.52 ms` per batch on the tested traffic graphs with batch shape
-`16 x 12 x N x 1`.
-
 ## Key Files
 
 ```text
-reproduce/run_plugin_baseline_comparison.py   final PhyPro plug-in comparison
-reproduce/run_phypro_ablation.py              selected ablation experiments
-reproduce/create_phypro_visual_case.py        final Figure 2 visual case
-METHOD_PHYPRO_FROZEN.md                       frozen method configuration
-paper/main.tex                                manuscript draft
-paper/figures/figure_phypro_mechanism.png     mechanism figure
-paper/figures/figure_phypro_case_a.png        interpretability case figure A
-paper/figures/figure_phypro_case_b.png        interpretability case figure B
-paper/figures/figure_phypro_case_c.png        interpretability case figure C
+paper/main.tex
+paper/references.bib
+paper/figures/figure_phypro_mechanism.png
+paper/figures/figure_phypro_case_a.png
+paper/figures/figure_phypro_case_b.png
+paper/figures/figure_phypro_case_c.png
+reproduce/run_plugin_baseline_comparison.py
+reproduce/run_phypro_ablation.py
+reproduce/create_phypro_visual_case.py
+METHOD_PHYPRO_FROZEN.md
 ```
 
 Paper evidence files:
 
 ```text
+results/phypro_paper_evidence/phypro_significance_tests.csv
 results/phypro_paper_evidence/phypro_significance_tests_masked_mae.csv
 results/phypro_paper_evidence/phypro_complexity_table.csv
 results/phypro_paper_evidence/phypro_region_explainability_minimal_no_gain.csv
 results/phypro_paper_evidence/phypro_param_sensitivity_no_gain.csv
 results/phypro_paper_evidence/phypro_ablation_selected.csv
 results/phypro_missing_rate_robustness_quick/missing_rate_robustness_pivot_masked_mae.csv
+results/paper_tables/dora_adapter_full_5data_3scen_3seed_4backbones.csv
+results/paper_tables/phypro_vs_dora_paired.csv
 ```
 
 ## Quick Reproduction
@@ -185,13 +226,12 @@ python reproduce/create_phypro_visual_case.py \
 ## Datasets
 
 The code uses public traffic benchmark sources. Raw datasets are not
-redistributed in this repository. Loaders document the public sources used for:
+redistributed in this repository. Users should follow the licenses and terms of
+the original dataset providers for:
 
 - `PEMS03`, `PEMS04`, `PEMS08`
 - `PEMS-BAY`
 - `METR-LA`
-
-Users should follow the licenses and terms of the original dataset providers.
 
 ## Notes
 

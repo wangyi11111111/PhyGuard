@@ -8,10 +8,16 @@
 \usepackage{algpseudocode}
 \usepackage{hyperref}
 \hypersetup{hidelinks}
+\setlength{\emergencystretch}{2em}
+\pdfstringdefDisableCommands{%
+  \def\corref#1{}%
+  \def\cortext#1#2{}%
+  \def\cnoteref#1{}%
+}
 \renewcommand{\theHfigure}{phyprofig.\arabic{figure}}
 \providecommand{\theHalgorithm}{phyproalg.\arabic{algorithm}}
 
-\journal{Target Elsevier journal pending}
+\journal{Engineering Applications of Artificial Intelligence}
 
 \begin{document}
 
@@ -19,11 +25,19 @@
 
 \title{PhyPro: Physics-Reliability Promoted Correction for Robust Sparse and Disrupted Traffic State Reconstruction}
 
-\author[inst1]{Author Name}
-\affiliation[inst1]{organization={Institution}, city={City}, country={Country}}
+\author[a]{Yi Wang}
+\author[b]{Wenqian Shang\corref{cor1}}
+\author[c]{Tong Yi\corref{cor1}}
+\author[d]{Haibin Zhu}
+\cortext[cor1]{Corresponding authors.}
+
+\affiliation[a]{organization={Hainan International College, Communication University of China}, city={Hainan}, country={China}}
+\affiliation[b]{organization={School of Computer and Cyber Sciences, Communication University of China}, city={Beijing}, country={China}}
+\affiliation[c]{organization={The Key Lab of Education Blockchain and Intelligent Technology, Ministry of Education, Guangxi Normal University}, city={Guilin}, country={China}}
+\affiliation[d]{organization={Collaborative Systems Laboratory (CoSys Lab), Department of Computer Science and Mathematics, Nipissing University}, city={North Bay}, state={ON}, postcode={P1B 8L7}, country={Canada}}
 
 \begin{abstract}
-\noindent Sparse and disrupted traffic sensing requires models to reconstruct missing states while avoiding harmful local corrections. Strong imputation backbones can exploit temporal and graph dependencies, yet they remain largely data-driven and provide limited evidence about whether a local correction is reliable. Physics-informed methods offer complementary domain knowledge, but fixed or globally weighted physical losses assume that simplified traffic-flow relations are reliable everywhere. This assumption can fail under sensor failures, incident perturbations, non-recurrent congestion, and noisy observations, where enforcing physics may amplify local errors. We propose PhyPro, a lightweight physics-reliability promoted correction framework for robust traffic state reconstruction. Given a backbone reconstruction, PhyPro learns a bounded generic correction and a physics-aligned correction direction, then uses local reliability evidence from masks, temporal gaps, graph-neighborhood deviations, physical residuals, failure scores, and conflict cues to decide when physics should promote or suppress the correction. Thus, physics is not used as a global hard constraint or a direct predictor; it acts as local evidence for reliability-conditioned promotion. Experiments on five public traffic datasets, three disruption protocols, three random seeds, and four reconstruction backbones show that PhyPro reduces masked MAE by 10.58\% over the corresponding backbones and remains significantly better than generic, calibration, and failure-aware plug-in adapters. PhyPro adds only 23,365 trainable parameters and millisecond-level forward overhead, while providing interpretable promotion and conflict maps.
+\noindent Sparse and disrupted traffic sensing requires models to reconstruct missing states while avoiding harmful local corrections. Strong imputation backbones can exploit temporal and graph dependencies, yet they remain largely data-driven and provide limited evidence about whether a local correction is reliable. Physics-informed methods offer complementary domain knowledge, but fixed or globally weighted physical losses assume that simplified traffic-flow relations are reliable everywhere. This assumption can fail under sensor failures, incident perturbations, non-recurrent congestion, and noisy observations, where enforcing physics may amplify local errors. We propose PhyPro, a lightweight physics-reliability promoted correction framework for robust traffic state reconstruction. Given a backbone reconstruction, PhyPro learns a bounded generic correction and a physics-aligned correction direction, then uses local reliability evidence from masks, temporal gaps, graph-neighborhood deviations, physical residuals, failure scores, and conflict cues to decide when physics should promote or suppress the correction. Thus, physics is not used as a global hard constraint or a direct predictor; it acts as local evidence for reliability-conditioned promotion. Experiments on five public traffic datasets, three disruption protocols, three random seeds, and four reconstruction backbones show that PhyPro reduces masked MAE by 10.58\% over the corresponding backbones and remains significantly better than Generic Adapter, DoRA Adapter, Calibration Guard, and Failure/Anomaly Guard. PhyPro adds only 23,365 trainable parameters and millisecond-level forward overhead, while providing interpretable promotion and conflict maps.
 
 
 
@@ -37,9 +51,9 @@ traffic state reconstruction \sep physics reliability \sep spatiotemporal imputa
 \end{frontmatter}
 
 \section{Introduction}
-Reliable traffic state reconstruction is a prerequisite for monitoring, prediction, traffic control, and incident response. In practice, however, road-network observations are sparse and locally unreliable. Sensors may randomly miss measurements, communication links may fail, detectors may remain unavailable for long intervals, and traffic states may deviate from recurrent patterns under incidents or abnormal congestion. These conditions make reconstruction more than a conventional interpolation problem: the model must infer unobserved values while deciding whether a local reconstruction is reliable enough to be modified.
+Reliable traffic state reconstruction is a prerequisite for monitoring, prediction, traffic control, and incident response. Recent large-scale traffic benchmarks and forecasting studies show that real road networks exhibit heterogeneous sensors, delayed propagation, long-range dependencies, and non-stationary local patterns \citep{liu2023largest,jiang2023pdformer}. In practice, however, road-network observations are sparse and locally unreliable. Sensors may randomly miss measurements, communication links may fail, detectors may remain unavailable for long intervals, and traffic states may deviate from recurrent patterns under incidents or abnormal congestion. These conditions make reconstruction more than a conventional interpolation problem: the model must infer unobserved values while deciding whether a local reconstruction is reliable enough to be modified.
 
-Traffic reconstruction has benefited from both structured statistical priors and deep spatiotemporal modeling. The success of graph-based traffic models in forecasting shows that road-network dependencies and nonlinear temporal dynamics can be learned effectively from sensor data \citep{li2018dcrnn,yu2018stgcn,wu2019graphwavenet,zheng2020gman}. Low-rank, temporal, recurrent, attention-based, and mask-aware imputation models extend this idea to incomplete observations. These methods provide strong reconstruction backbones, but they mainly answer how to reconstruct a value. They do not directly answer whether a local correction to a strong backbone output is physically reliable.
+Traffic reconstruction has benefited from both structured statistical priors and deep spatiotemporal modeling. The success of graph-based traffic models in forecasting shows that road-network dependencies and nonlinear temporal dynamics can be learned effectively from sensor data \citep{li2018dcrnn,wu2019graphwavenet}. Later adaptive graph and attention-based models further demonstrate that fixed road graphs are often insufficient, because traffic dependencies can be node-specific and multi-range \citep{bai2020agcrn,chen2020mrabgcn}. Low-rank, temporal, recurrent, attention-based, and mask-aware imputation models extend this idea to incomplete observations. These methods provide strong reconstruction backbones, but they mainly answer how to reconstruct a value. They do not directly answer whether a local correction to a strong backbone output is physically reliable.
 
 Physics-informed learning offers a different source of evidence. Physical constraints can represent flow-density-speed consistency, conservation relations, graph smoothness, or macroscopic traffic dynamics. Such priors are appealing because sparse observations alone may not identify the local traffic state. Yet the same priors can be risky in open road networks. A simplified residual that is meaningful in normal traffic can become unreliable around failed sensors, local incidents, non-periodic congestion, or speed-only datasets without explicit flow-density information. Fixed physics losses therefore suffer from a local physical-misguidance problem: they treat physics as equally trustworthy across all sensors and time steps, even when the physical relation is locally mismatched.
 
@@ -223,9 +237,9 @@ PhyPro is trained on target reconstruction regions using
   +\lambda_s\mathcal{L}_{shrink}.
 \end{equation}
 The reconstruction term is the mean absolute error on missing or disrupted entries. The gate and promotion losses use contrastive utility labels derived from local error comparisons during training. The generic correction is useful when it improves over the backbone, and physics promotion is useful when a physics-aligned probe improves over the generic correction. The harm term penalizes corrections that exceed the better of the backbone and generic correction:
-\begin{equation}
+\begin{align}
   \mathcal{L}_{harm}
-  =
+  &=
   \mathbb{E}_{(t,i)\in\Omega}
   \left[
   w_{t,i}
@@ -233,10 +247,16 @@ The reconstruction term is the mean absolute error on missing or disrupted entri
   \left(
   0,
   |\hat{x}_{t,i}-x_{t,i}|-
-  \min(|x_{0,t,i}-x_{t,i}|,|x_{0,t,i}+\Delta^g_{t,i}-x_{t,i}|)
+  \eta_{t,i}
   \right)
-  \right],
-\end{equation}
+  \right], \\
+  \eta_{t,i}
+  &=
+  \min\left(
+  |x_{0,t,i}-x_{t,i}|,
+  |x_{0,t,i}+\Delta^g_{t,i}-x_{t,i}|
+  \right).
+\end{align}
 where $w_{t,i}$ increases with failure and residual-conflict evidence. This term makes the correction conservative in regions where an incorrect update may persist or amplify a local abnormal state.
 
 \section{Experiments}
@@ -249,7 +269,7 @@ We consider three reconstruction protocols. Random missing removes observed entr
 \subsection{Baselines and Backbones}
 PhyPro is attached to four strong and diverse reconstruction backbones: BRITS \citep{cao2018brits}, SAITS \citep{du2023saits}, ImputeFormer \citep{liu2024imputeformer}, and MagiNet \citep{liu2025maginet}. BRITS represents bidirectional recurrent imputation, SAITS represents self-attention-based temporal imputation, ImputeFormer represents transformer-style masked spatiotemporal imputation, and MagiNet represents mask-aware graph repair. This selection avoids testing only minor variants of one architecture family.
 
-We report two types of comparisons. The first compares each backbone with the same backbone enhanced by PhyPro. The second compares PhyPro with plug-in baselines under the same backbone outputs: Generic Adapter, Calibration Guard, and Failure/Anomaly Guard. Generic Adapter follows the residual-adapter idea used in parameter-efficient adaptation \citep{houlsby2019adapter}; Calibration Guard follows confidence calibration \citep{guo2017calibration}; and Failure/Anomaly Guard follows failure detection and selective prediction principles \citep{hendrycks2017baseline,geifman2019selectivenet}. This protocol isolates whether PhyPro improves because of physics-reliability promotion rather than because an additional adapter was added.
+We report two types of comparisons. The first compares each backbone with the same backbone enhanced by PhyPro. The second compares PhyPro with plug-in baselines under the same backbone outputs: Generic Adapter, DoRA Adapter, Calibration Guard, and Failure/Anomaly Guard. Generic Adapter follows the residual-adapter idea used in parameter-efficient adaptation \citep{houlsby2019adapter}; DoRA Adapter follows weight-decomposed low-rank adaptation \citep{liu2024dora}; Calibration Guard follows confidence calibration \citep{guo2017calibration}; and Failure/Anomaly Guard follows failure detection and selective prediction principles \citep{hendrycks2017baseline,geifman2019selectivenet}. This protocol isolates whether PhyPro improves because of physics-reliability promotion rather than because an additional adapter was added.
 
 The primary metric is masked MAE on the target missing or disrupted region:
 \begin{equation}
@@ -298,24 +318,25 @@ PEMS08 & Failure & 0.4257 & \textbf{0.4148} & 0.6324 & \textbf{0.6115} & 0.5002 
 \end{table}
 
 \subsection{Plug-in Comparison and Significance}
-Table~\ref{tab:plugin} compares PhyPro with other plug-in adapters. Generic Adapter already improves the backbone by learning a data-driven residual correction. PhyPro further improves over it by adding physics-reliability promotion and conflict suppression. Paired tests in Table~\ref{tab:significance} show that the improvements are statistically stable across matched dataset, scenario, seed, and backbone settings.
+Table~\ref{tab:plugin} compares PhyPro with other plug-in adapters. Generic Adapter already improves the backbone by learning a data-driven residual correction. DoRA Adapter provides a stronger recent parameter-efficient adapter baseline inspired by weight-decomposed low-rank adaptation \citep{liu2024dora}. PhyPro further improves over these adapters by adding physics-reliability promotion and conflict suppression. Paired tests in Table~\ref{tab:significance} show that the improvements are statistically stable across matched dataset, scenario, seed, and backbone settings.
 
 \begin{table}[!htbp]
 \centering
+\small
 \caption{Plug-in comparison by disruption scenario. Values are masked MAE ($\downarrow$).}
 \label{tab:plugin}
-\resizebox{0.96\linewidth}{!}{%
-\begin{tabular}{lccccc}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-Setting & Backbone $\downarrow$ & Generic Adapter $\downarrow$ & Calibration Guard $\downarrow$ & Failure/Anomaly Guard $\downarrow$ & PhyPro (Ours) $\downarrow$ \\
+Method & Overall $\downarrow$ & Random $\downarrow$ & Failure $\downarrow$ & Incident $\downarrow$ \\
 \midrule
-Overall & 0.3804 $\pm$ 0.1881 & 0.3496 $\pm$ 0.1830 & 0.3556 $\pm$ 0.1843 & 0.3550 $\pm$ 0.1841 & \textbf{0.3441 $\pm$ 0.1805} \\
-Random missing & 0.2643 & 0.2309 & 0.2375 & 0.2372 & \textbf{0.2261} \\
-Sensor failure & 0.5930 & 0.5661 & 0.5712 & 0.5698 & \textbf{0.5583} \\
-Incident perturbation & 0.2839 & 0.2517 & 0.2582 & 0.2582 & \textbf{0.2479} \\
+Backbone & 0.3804 $\pm$ 0.1881 & 0.2643 & 0.5930 & 0.2839 \\
+Generic Adapter & 0.3496 $\pm$ 0.1830 & 0.2309 & 0.5661 & 0.2517 \\
+DoRA Adapter & 0.3528 $\pm$ 0.1800 & 0.2360 & 0.5642 & 0.2583 \\
+Calibration Guard & 0.3556 $\pm$ 0.1843 & 0.2375 & 0.5712 & 0.2582 \\
+Failure/Anomaly Guard & 0.3550 $\pm$ 0.1841 & 0.2372 & 0.5698 & 0.2582 \\
+PhyPro (Ours) & \textbf{0.3441 $\pm$ 0.1805} & \textbf{0.2261} & \textbf{0.5583} & \textbf{0.2479} \\
 \bottomrule
 \end{tabular}
-}
 \end{table}
 
 \begin{table}[!htbp]
@@ -329,6 +350,7 @@ Comparison & Mean improvement $\uparrow$ & Paired $t$-test $p$ $\downarrow$ & Wi
 \midrule
 PhyPro vs Backbone & \textbf{10.58\%} & \textbf{$2.29{\times}10^{-54}$} & \textbf{$2.73{\times}10^{-31}$} \\
 PhyPro vs Generic Adapter & 1.58\% & $1.01{\times}10^{-21}$ & $7.02{\times}10^{-28}$ \\
+PhyPro vs DoRA Adapter & 2.47\% & $6.17{\times}10^{-12}$ & $6.81{\times}10^{-17}$ \\
 PhyPro vs Calibration Guard & 3.46\% & $3.12{\times}10^{-38}$ & $1.09{\times}10^{-30}$ \\
 PhyPro vs Failure/Anomaly Guard & 3.29\% & $8.13{\times}10^{-36}$ & $1.33{\times}10^{-30}$ \\
 \bottomrule
@@ -478,7 +500,7 @@ This paper introduced PhyPro, a physics-reliability promoted correction framewor
 Experiments on five public datasets, three disruption protocols, three random seeds, and four diverse reconstruction backbones show that PhyPro consistently improves masked MAE while adding only 23,365 trainable parameters. The plug-in comparison, ablation, missing-rate robustness, significance tests, complexity analysis, and visual explanations jointly support the central claim: physics is most useful for robust traffic reconstruction when it serves as local reliability evidence for correction, not as a fixed global constraint.
 
 \section*{Data Availability}
-The experiments use public traffic benchmark datasets. PEMS03, PEMS04, and PEMS08 are loaded from public PEMS benchmark mirrors, PEMS-BAY is loaded from the Hugging Face dataset \texttt{MintBruce/SkyTraffic}, and METR-LA is loaded from the Hugging Face dataset \texttt{witgaw/METR-LA}. The repository documents the exact loaders and preprocessing scripts used in the experiments. Raw datasets are not redistributed by this manuscript.
+The experiments use public traffic benchmark datasets. PEMS03, PEMS04, and PEMS08 are loaded from public PEMS benchmark mirrors, PEMS-BAY is loaded from the Hugging Face dataset \path{MintBruce/SkyTraffic}, and METR-LA is loaded from the Hugging Face dataset \path{witgaw/METR-LA}. The repository documents the exact loaders and preprocessing scripts used in the experiments. Raw datasets are not redistributed by this manuscript.
 
 \section*{Code Availability}
 The anonymized implementation and reproduction scripts are available at: \url{https://anonymous.4open.science/r/PhyPRO}.

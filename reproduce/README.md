@@ -11,8 +11,9 @@ run_plugin_baseline_comparison.py
 ```
 
 The paper-facing method is `PhyPro`. Internally, the final module class is
-`ReliabilityConditionedPlugin`; old labels such as `PhyGuardRC` are development
-artifacts and should not be used in final paper tables.
+`ReliabilityConditionedPlugin`; old result labels such as `PhyGuardRC` are
+development artifacts retained only for compatibility with existing CSV files.
+They should not be used as final paper table names.
 
 ## Main Plug-in Comparison
 
@@ -45,6 +46,22 @@ with backbones:
 ```text
 BRITS, SAITS, ImputeFormer, MagiNet
 ```
+
+The current plug-in comparison includes:
+
+```text
+Backbone
+Generic Adapter
+DoRA Adapter
+Calibration Guard
+Failure/Anomaly Guard
+PhyPro
+```
+
+`DoRA Adapter` is a recent parameter-efficient adapter baseline. It is exposed
+through `run_plugin_baseline_comparison.py --plugins DoRAAdapter` and can be
+run alone with `--skip-phypro` when only the additional baseline column is
+needed.
 
 ## Ablation
 
@@ -100,6 +117,7 @@ Small CSV summaries used in the manuscript are under:
 ```text
 results/phypro_paper_evidence/
 results/phypro_missing_rate_robustness_quick/
+results/paper_tables/
 ```
 
 Large raw experiment outputs are not required for the anonymous paper archive
