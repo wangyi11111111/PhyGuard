@@ -30,10 +30,16 @@ results/imputeformer_*/
 results/local_utility_guard*/
 results/leakage_check_*/
 results/phyguard_plugin_*/
+results/phyguard_v12_*/
+results/phypro_ablation_*/
+results/phypro_brits_impute_*/
+results/phypro_full_*/
+results/phypro_param_tiny_*/
+results/phypro_visual_case/
+results/plugin_baseline_*/
 results/plugin_baseline_smoke/
 results/plugin_baseline_comparison_seed1/
 results/plugin_baseline_comparison_seed1_metrla_incident/
-results/phyguard_v12_*/
 results/strong_external_*/
 results/strict_fixed_smoke/
 results/*_smoke*/
@@ -42,9 +48,14 @@ results/*_smoke*/
 !results/phyguard_paper_evidence/**
 !results/phyguard_visual_case/
 !results/phyguard_visual_case/**
+!results/phypro_paper_evidence/
+!results/phypro_paper_evidence/**
+!results/phypro_missing_rate_robustness_quick/
+!results/phypro_missing_rate_robustness_quick/*masked_mae.csv
 
 # Do not keep large visual-case arrays in git.
 results/phyguard_visual_case/*.npz
+results/phypro_visual_case/*.npz
 
 # LaTeX build cache. Keep source files, bibliography, figures, and optional PDFs.
 paper/**/*.aux
