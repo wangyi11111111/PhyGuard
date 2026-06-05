@@ -31,9 +31,8 @@
 
 \begin{keyword}
 traffic state reconstruction \sep physics reliability \sep spatiotemporal imputation \sep robust learning
+\par\smallskip\textbf{Code link:} \url{https://anonymous.4open.science/r/PhyPRO}
 \end{keyword}
-
-\noindent\textbf{Code link:} \url{https://anonymous.4open.science/r/PhyPRO}
 
 \end{frontmatter}
 
@@ -271,8 +270,8 @@ Table~\ref{tab:main_mae} reports the main paired comparison. PhyPro improves all
 \setlength{\tabcolsep}{1.8pt}
 \caption{Main masked MAE ($\downarrow$) results. Each backbone is compared with the same backbone enhanced by PhyPro. Ours denotes the PhyPro-enhanced variant.}
 \label{tab:main_mae}
-\resizebox{\textwidth}{!}{%
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llcccccccc@{}}
+\resizebox{0.96\linewidth}{!}{%
+\begin{tabular}{@{}llcccccccc@{}}
 \toprule
 Dataset & Scenario & \multicolumn{2}{c}{BRITS} & \multicolumn{2}{c}{ImputeFormer} & \multicolumn{2}{c}{MagiNet} & \multicolumn{2}{c}{SAITS} \\
 \cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(lr){9-10}
@@ -294,7 +293,7 @@ PEMS08 & Incident & 0.2890 & \textbf{0.2699} & 0.1638 & \textbf{0.1608} & 0.1494
 PEMS08 & Random & 0.2784 & \textbf{0.2628} & 0.1452 & \textbf{0.1417} & 0.1333 & \textbf{0.1300} & 0.2841 & \textbf{0.2739} \\
 PEMS08 & Failure & 0.4257 & \textbf{0.4148} & 0.6324 & \textbf{0.6115} & 0.5002 & \textbf{0.4989} & 0.4356 & \textbf{0.4225} \\
 \bottomrule
-\end{tabular*}
+\end{tabular}
 }
 \end{table}
 
@@ -305,7 +304,7 @@ Table~\ref{tab:plugin} compares PhyPro with other plug-in adapters. Generic Adap
 \centering
 \caption{Plug-in comparison by disruption scenario. Values are masked MAE ($\downarrow$).}
 \label{tab:plugin}
-\resizebox{\textwidth}{!}{%
+\resizebox{0.96\linewidth}{!}{%
 \begin{tabular}{lccccc}
 \toprule
 Setting & Backbone $\downarrow$ & Generic Adapter $\downarrow$ & Calibration Guard $\downarrow$ & Failure/Anomaly Guard $\downarrow$ & PhyPro (Ours) $\downarrow$ \\
@@ -323,6 +322,7 @@ Incident perturbation & 0.2839 & 0.2517 & 0.2582 & 0.2582 & \textbf{0.2479} \\
 \centering
 \caption{Paired significance tests for PhyPro. Comparisons use matched dataset, scenario, seed, and backbone settings.}
 \label{tab:significance}
+\resizebox{0.96\linewidth}{!}{%
 \begin{tabular}{lccc}
 \toprule
 Comparison & Mean improvement $\uparrow$ & Paired $t$-test $p$ $\downarrow$ & Wilcoxon $p$ $\downarrow$ \\
@@ -333,6 +333,7 @@ PhyPro vs Calibration Guard & 3.46\% & $3.12{\times}10^{-38}$ & $1.09{\times}10^
 PhyPro vs Failure/Anomaly Guard & 3.29\% & $8.13{\times}10^{-36}$ & $1.33{\times}10^{-30}$ \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \subsection{Ablation Study}
@@ -343,6 +344,7 @@ Table~\ref{tab:ablation} reports a selected ablation on PEMS08 using SAITS and M
 \small
 \caption{Selected ablation results on PEMS08. Values are masked MAE ($\downarrow$); internal diagnostic variants are omitted from the main text.}
 \label{tab:ablation}
+\resizebox{0.86\linewidth}{!}{%
 \begin{tabular}{lccc}
 \toprule
 Variant & Masked MAE $\downarrow$ & Gate mean $\uparrow$ & Promotion mean $\uparrow$ \\
@@ -356,6 +358,7 @@ w/o conflict suppression & 0.2788 & 0.9572 & 0.5500 \\
 w/o failure evidence & 0.2786 & 0.9568 & 0.5230 \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \subsection{Parameter Sensitivity}
@@ -365,6 +368,7 @@ Table~\ref{tab:param_sensitivity} reports a small sensitivity check for the gate
 \centering
 \caption{Parameter sensitivity for the final PhyPro configuration.}
 \label{tab:param_sensitivity}
+\resizebox{0.86\linewidth}{!}{%
 \begin{tabular}{ccccc}
 \toprule
 Gate floor & Conflict coefficient & Masked MAE $\downarrow$ & Gate mean $\uparrow$ & Promotion mean $\uparrow$ \\
@@ -375,6 +379,7 @@ Gate floor & Conflict coefficient & Masked MAE $\downarrow$ & Gate mean $\uparro
 0.90 & 0.75 & 0.3219 & 0.9461 & 0.4251 \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \subsection{Interpretability Analysis}
@@ -405,7 +410,7 @@ Figures~\ref{fig:case_obs}--\ref{fig:case_corr} visualize a representative PEMS-
 \centering
 \caption{Region-level mechanism statistics. The table reports mechanism variables only and does not repeat main-table gains.}
 \label{tab:interpretability}
-\resizebox{\textwidth}{!}{%
+\resizebox{0.96\linewidth}{!}{%
 \begin{tabular}{lccccc}
 \toprule
 Region & Masked MAE $\downarrow$ & Reliability gate $\uparrow$ & Promotion mean $\uparrow$ & $|\Delta_g|$ mean $\downarrow$ & Failure score $\uparrow$ \\
@@ -426,7 +431,7 @@ Table~\ref{tab:missing_rate} reports a quick missing-rate robustness check on PE
 \small
 \caption{Missing-rate robustness under random missing protocols.}
 \label{tab:missing_rate}
-\resizebox{\textwidth}{!}{%
+\resizebox{0.96\linewidth}{!}{%
 \begin{tabular}{lccccc}
 \toprule
 Missing rate & Backbone $\downarrow$ & Generic Adapter $\downarrow$ & Calibration Guard $\downarrow$ & Failure/Anomaly Guard $\downarrow$ & PhyPro $\downarrow$ \\
